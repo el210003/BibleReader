@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Book, BookList, CacheStats, Catalog, Span, Verse } from './api';
+import { strings, UI_LANGS, type UiLang } from './i18n';
 import './App.css';
 
 type PlaySpan = { verse: number; charStart: number; charEnd: number; tMs: number; durMs: number };
@@ -17,9 +18,30 @@ type Playback = {
 };
 
 type SelectionBar = { x: number; y: number; start: number; end: number };
-type Prefs = { translation: string; voice: string; book: number; chapter: number; region?: string };
+type Prefs = {
+  translation: string;
+  voice: string;
+  book: number;
+  chapter: number;
+  region?: string;
+  uiLang?: UiLang;
+};
 
 const PREFS_KEY = 'biblereader.prefs.v1';
+
+const SELECTION_LABEL: Record<UiLang, string> = {
+  'zh-Hant': '選取範圍',
+  en: 'Selection',
+  es: 'Selección',
+  fr: 'Sélection',
+};
+
+const VERSE_LABEL: Record<UiLang, (n: number) => string> = {
+  'zh-Hant': (n) => `第 ${n} 節`,
+  en: (n) => `Verse ${n}`,
+  es: (n) => `Versículo ${n}`,
+  fr: (n) => `Verset ${n}`,
+};
 
 function loadPrefs(): Prefs | null {
   try {
@@ -79,7 +101,6 @@ function mapSpansToVerses(
       }
     }
     if (vi < 0) continue;
-    // clamp to the verse so a span can never bleed into the next one
     const verseEnd = verseStarts[vi] + verseLengths[vi];
     const gEnd = Math.min(selStart + s.charEnd, verseEnd);
     const charStart = gStart - verseStarts[vi];
@@ -113,9 +134,11 @@ export default function App() {
   const [status, setStatus] = useState('');
   const [hydrated, setHydrated] = useState(false);
   const [region, setRegion] = useState('default');
+  const [uiLang, setUiLang] = useState<UiLang>('zh-Hant');
   const [selBar, setSelBar] = useState<SelectionBar | null>(null);
   const [queue, setQueue] = useState<{ list: number[]; pos: number } | null>(null);
   const [cache, setCache] = useState<CacheStats | null>(null);
+  const [sleepMin, setSleepMin] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -124,10 +147,19 @@ export default function App() {
   const sysSpanCount = useRef(0);
   const cancelledRef = useRef(false);
   const handleEndedRef = useRef<(() => void) | null>(null);
+  const playbackRef = useRef<Playback | null>(null);
+  const activeVerseRef = useRef<number | null>(null);
+
+  const t = useMemo(() => strings(uiLang), [uiLang]);
+  const verseLabel = useMemo(() => VERSE_LABEL[uiLang], [uiLang]);
 
   useEffect(() => {
     queueRef.current = queue;
   }, [queue]);
+
+  useEffect(() => {
+    playbackRef.current = playback;
+  }, [playback]);
 
   // ---------- boot ----------
   useEffect(() => {
@@ -142,6 +174,7 @@ export default function App() {
           setBook(saved.book);
           setChapter(saved.chapter);
           setRegion(saved.region ?? c.defaults.region);
+          if (saved.uiLang) setUiLang(saved.uiLang);
         } else {
           setTranslation(c.defaults.translation);
           setVoice(c.defaults.voice);
@@ -155,8 +188,8 @@ export default function App() {
 
   useEffect(() => {
     if (!hydrated) return;
-    savePrefs({ translation, voice, book, chapter, region });
-  }, [hydrated, translation, voice, book, chapter, region]);
+    savePrefs({ translation, voice, book, chapter, region, uiLang });
+  }, [hydrated, translation, voice, book, chapter, region, uiLang]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -222,9 +255,7 @@ export default function App() {
     [verses, chapterIndex]
   );
 
-  // ---------- system-voice fallback (offline / Edge failure) ----------
-  // getVoices() can be empty until 'voiceschanged' fires, so wait for it rather than
-  // concluding "no voice installed" on the first attempt.
+  // ---------- system-voice fallback ----------
   const getSystemVoice = useCallback(async (locale: string) => {
     const synth = window.speechSynthesis;
     let voices = synth.getVoices();
@@ -248,7 +279,7 @@ export default function App() {
       const synth = window.speechSynthesis;
       const v = await getSystemVoice(locale);
       if (!v) {
-        setError(`Edge 連線失敗，且系統沒有 ${locale} 語音`);
+        setError(t.noSystemVoice);
         setStatus('');
         return;
       }
@@ -259,7 +290,6 @@ export default function App() {
       const u = new SpeechSynthesisUtterance(text);
       u.voice = v;
       u.lang = v.lang;
-      // honour the same speed control the Edge path uses (SAPI accepts 0.1-10)
       u.rate = Math.min(10, Math.max(0.1, Number(rate) || 1));
 
       setPlayback((prev) => {
@@ -272,7 +302,7 @@ export default function App() {
           unmapped: 0,
           source: 'system',
           synthMs: 0,
-          label: `${label}（系統語音 ${v.lang}）`,
+          label: `${label} · ${v.lang}`,
         };
       });
       setActiveSpan(-1);
@@ -300,9 +330,9 @@ export default function App() {
       u.onerror = () => setPlaying(false);
 
       synth.speak(u);
-      setNotice(`Edge 不可用，改用系統語音（${v.lang}）`);
+      setNotice(`${t.edgeDown} (${v.lang})`);
     },
-    [chapterIndex, getSystemVoice, rate]
+    [chapterIndex, getSystemVoice, rate, t]
   );
 
   // ---------- Edge TTS ----------
@@ -315,7 +345,7 @@ export default function App() {
       if (!chosen) return false;
 
       if (!opts?.keepQueue) setQueue(null);
-      setStatus('合成中…');
+      setStatus(t.synthesizing);
       const t0 = performance.now();
       try {
         const res = await window.api.speak({ text, voice: chosen.id, locale: chosen.locale, rate });
@@ -344,7 +374,7 @@ export default function App() {
         return false;
       }
     },
-    [chapterIndex, catalog, translation, voice, rate]
+    [chapterIndex, catalog, translation, voice, rate, t]
   );
 
   const speakRange = useCallback(
@@ -365,9 +395,9 @@ export default function App() {
   const speakVerse = useCallback(
     (verseNum: number) => {
       const r = verseRange(verseNum);
-      if (r) speakRange(r.start, r.end, `第 ${verseNum} 節`);
+      if (r) speakRange(r.start, r.end, verseLabel(verseNum));
     },
-    [verseRange, speakRange]
+    [verseRange, speakRange, verseLabel]
   );
 
   // ---------- queue ----------
@@ -387,7 +417,7 @@ export default function App() {
     const r = verseRange(verseNum);
     if (!r) return;
 
-    speakRange(r.start, r.end, `第 ${verseNum} 節`, { keepQueue: true });
+    speakRange(r.start, r.end, verseLabel(verseNum), { keepQueue: true });
 
     const next = queue.list[queue.pos + 1];
     const meta = catalog?.translations[translation];
@@ -406,7 +436,7 @@ export default function App() {
           .catch(() => {});
       }
     }
-  }, [queue, verseRange, speakRange, chapterIndex, catalog, translation, voice, rate]);
+  }, [queue, verseRange, speakRange, chapterIndex, catalog, translation, voice, rate, verseLabel]);
 
   const handleEnded = useCallback(() => {
     const q = queueRef.current;
@@ -436,12 +466,12 @@ export default function App() {
     const tick = () => {
       const a = audioRef.current;
       if (!a) return;
-      const t = a.currentTime * 1000;
+      const tMs = a.currentTime * 1000;
       let idx = -1;
       for (let i = 0; i < playback.spans.length; i++) {
         const s = playback.spans[i];
-        if (t >= s.tMs && t < s.tMs + s.durMs) { idx = i; break; }
-        if (t >= s.tMs) idx = i;
+        if (tMs >= s.tMs && tMs < s.tMs + s.durMs) { idx = i; break; }
+        if (tMs >= s.tMs) idx = i;
       }
       setActiveSpan(idx);
       if (!a.paused) rafRef.current = requestAnimationFrame(tick);
@@ -471,6 +501,57 @@ export default function App() {
     setActiveSpan(-1);
     setQueue(null);
   }, []);
+
+  const togglePlay = useCallback(() => {
+    if (playback?.mode === 'system') {
+      if (playing) window.speechSynthesis.pause();
+      else window.speechSynthesis.resume();
+      setPlaying(!playing);
+      return;
+    }
+    const a = audioRef.current;
+    if (!a) return;
+    if (a.paused) a.play().catch((e) => setError(String(e)));
+    else a.pause();
+  }, [playback, playing]);
+
+  // ---------- sleep timer ----------
+  useEffect(() => {
+    if (!sleepMin) return;
+    const id = setTimeout(() => {
+      if (playbackRef.current) {
+        stopAll();
+        setNotice(t.sleepStopped);
+      }
+      setSleepMin(0);
+    }, sleepMin * 60_000);
+    return () => clearTimeout(id);
+  }, [sleepMin, stopAll, t.sleepStopped]);
+
+  // ---------- keyboard ----------
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      const typing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
+
+      if (e.key === 'Escape') {
+        stopAll();
+        return;
+      }
+      if (e.code === 'Space' && !typing) {
+        e.preventDefault();
+        togglePlay();
+        return;
+      }
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        const target = activeVerseRef.current ?? verses[0]?.verse ?? 1;
+        speakVerse(target);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [stopAll, togglePlay, speakVerse, verses]);
 
   // ---------- selection ----------
   const onMouseUp = useCallback(() => {
@@ -526,6 +607,9 @@ export default function App() {
   );
 
   const activeVerse = activeSpan >= 0 && playback ? playback.spans[activeSpan]?.verse : null;
+  useEffect(() => {
+    activeVerseRef.current = activeVerse;
+  }, [activeVerse]);
 
   const bookSections = useMemo(() => {
     if (!bookList) return [];
@@ -543,9 +627,24 @@ export default function App() {
         </div>
         <div className="controls">
           <label>
-            譯本
+            {t.uiLang}
             <select
+              data-testid="uilang"
+              value={uiLang}
+              onChange={(e) => setUiLang(e.target.value as UiLang)}
+              aria-label={t.uiLang}
+            >
+              {UI_LANGS.map((l) => (
+                <option key={l.id} value={l.id}>{l.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t.translation}
+            <select
+              data-testid="translation"
               value={translation}
+              aria-label={t.translation}
               onChange={(e) => {
                 const next = e.target.value;
                 setTranslation(next);
@@ -560,8 +659,8 @@ export default function App() {
             </select>
           </label>
           <label>
-            書卷
-            <select value={book} onChange={(e) => setBook(Number(e.target.value))}>
+            {t.book}
+            <select value={book} aria-label={t.book} onChange={(e) => setBook(Number(e.target.value))}>
               {bookSections.map((g) => (
                 <optgroup key={g.key} label={g.label}>
                   {g.books.map((b) => (
@@ -572,44 +671,44 @@ export default function App() {
             </select>
           </label>
           <label>
-            章
-            <select value={chapter} onChange={(e) => setChapter(Number(e.target.value))}>
+            {t.chapter}
+            <select value={chapter} aria-label={t.chapter} onChange={(e) => setChapter(Number(e.target.value))}>
               {Array.from({ length: currentBook?.chapters ?? 1 }, (_, i) => (
                 <option key={i + 1} value={i + 1}>{i + 1}</option>
               ))}
             </select>
           </label>
           <label>
-            聲音
-            <select data-testid="voice" value={voice} onChange={(e) => setVoice(e.target.value)}>
+            {t.voice}
+            <select data-testid="voice" value={voice} aria-label={t.voice} onChange={(e) => setVoice(e.target.value)}>
               {catalog?.translations[translation]?.voices.map((v) => (
                 <option key={v.id} value={v.id}>{v.label}</option>
               ))}
             </select>
           </label>
           <button onClick={loadChapter} disabled={loading}>
-            {loading ? '載入中…' : '載入'}
+            {loading ? t.loading : t.load}
           </button>
         </div>
       </header>
 
       {error && (
-        <div className="error">
+        <div className="error" role="alert">
           {error}
-          <button onClick={() => setError(null)}>×</button>
+          <button onClick={() => setError(null)} aria-label={t.close}>×</button>
         </div>
       )}
       {notice && (
-        <div className="notice">
+        <div className="notice" role="status">
           {notice}
-          <button onClick={() => setNotice(null)}>×</button>
+          <button onClick={() => setNotice(null)} aria-label={t.close}>×</button>
         </div>
       )}
 
-      <main className="reader" onMouseUp={onMouseUp}>
+      <main className="reader" onMouseUp={onMouseUp} aria-label="Scripture">
         {chapterMeta?.fromCache && (
           <p className="cached-note">
-            離線快取 · {new Date(chapterMeta.fetchedAt).toLocaleDateString()}
+            {t.offlineNote} · {new Date(chapterMeta.fetchedAt).toLocaleDateString()}
           </p>
         )}
         {verses.map((v) => {
@@ -619,10 +718,19 @@ export default function App() {
               key={v.verse}
               className={`verse${activeVerse === v.verse ? ' active' : ''}`}
               data-verse={v.verse}
+              role="button"
+              tabIndex={0}
+              aria-label={`${verseLabel(v.verse)} — ${t.verseTip}`}
               onClick={() => speakVerse(v.verse)}
-              title="點擊朗讀整節"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  speakVerse(v.verse);
+                }
+              }}
+              title={t.verseTip}
             >
-              <span className="vnum">{v.verse}</span>
+              <span className="vnum" aria-hidden="true">{v.verse}</span>
               <p className="vtext">
                 {segs
                   ? segs.map((seg, i) =>
@@ -639,13 +747,13 @@ export default function App() {
             </div>
           );
         })}
-        {!loading && verses.length === 0 && !error && <p className="empty">沒有內容</p>}
+        {!loading && verses.length === 0 && !error && <p className="empty">{t.empty}</p>}
       </main>
 
       {selBar && (
-        <div className="selbar" style={{ left: selBar.x, top: selBar.y }}>
-          <button className="primary" onClick={() => speakRange(selBar.start, selBar.end, '選取範圍')}>
-            ▶ 朗讀選取
+        <div className="selbar" style={{ left: selBar.x, top: selBar.y }} role="toolbar">
+          <button className="primary" onClick={() => speakRange(selBar.start, selBar.end, SELECTION_LABEL[uiLang])}>
+            {t.speakSelection}
           </button>
           <button
             onClick={() => {
@@ -654,9 +762,14 @@ export default function App() {
               if (sv) speakVerse(sv.verse);
             }}
           >
-            整節
+            {t.wholeVerse}
           </button>
-          <button onClick={() => { window.getSelection()?.removeAllRanges(); setSelBar(null); }}>×</button>
+          <button
+            aria-label={t.close}
+            onClick={() => { window.getSelection()?.removeAllRanges(); setSelBar(null); }}
+          >
+            ×
+          </button>
         </div>
       )}
 
@@ -671,52 +784,46 @@ export default function App() {
             handleEnded();
           }}
         />
-        <button
-          className="primary"
-          disabled={!playback}
-          onClick={() => {
-            if (playback?.mode === 'system') {
-              if (playing) window.speechSynthesis.pause();
-              else window.speechSynthesis.resume();
-              setPlaying(!playing);
-              return;
-            }
-            const a = audioRef.current;
-            if (!a) return;
-            if (a.paused) a.play().catch((e) => setError(String(e)));
-            else a.pause();
-          }}
-        >
-          {playing ? '⏸ 暫停' : '▶ 播放'}
+        <button className="primary" disabled={!playback} onClick={togglePlay}>
+          {playing ? `⏸ ${t.pause}` : `▶ ${t.play}`}
         </button>
-        <button disabled={!playback} onClick={stopAll}>⏹ 停止</button>
+        <button disabled={!playback} onClick={stopAll}>⏹ {t.stop}</button>
         <button disabled={!verses.length} onClick={() => startQueue(activeVerse ?? verses[0]?.verse ?? 1)}>
-          ▶ 連續朗讀
+          ▶ {t.readChapter}
         </button>
         <label>
-          速度
-          <select value={rate} onChange={(e) => setRate(e.target.value)}>
+          {t.speed}
+          <select value={rate} aria-label={t.speed} onChange={(e) => setRate(e.target.value)}>
             <option value="0.75">0.75×</option>
             <option value="1">1×</option>
             <option value="1.5">1.5×</option>
             <option value="2">2×</option>
           </select>
         </label>
+        <label>
+          {t.sleep}
+          <select value={sleepMin} aria-label={t.sleep} onChange={(e) => setSleepMin(Number(e.target.value))}>
+            <option value={0}>{t.sleepOff}</option>
+            <option value={15}>15 min</option>
+            <option value={30}>30 min</option>
+            <option value={60}>60 min</option>
+          </select>
+        </label>
         <button
           onClick={async () => {
             const s = await window.api.clearCache();
             setCache(s);
-            setNotice('已清除快取');
+            setNotice(t.cacheCleared);
           }}
         >
-          清快取
+          {t.clearCache}
         </button>
         <div className="meta">
           {status && <span className="pill">{status}</span>}
           {queue && <span className="pill" data-testid="queue">{queue.pos + 1}/{queue.list.length}</span>}
           {cache && (
             <span className="pill" data-testid="cache">
-              cache {Math.round(cache.totalBytes / 1048576)}MB
+              {t.cachePill} {Math.round(cache.totalBytes / 1048576)}MB
             </span>
           )}
           {playback && (

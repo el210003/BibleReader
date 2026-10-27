@@ -19,12 +19,14 @@
     "reset": "cross-env BIBLEREADER_RESET_PREFS=1 electron .",
     "start:nogpu": "cross-env BIBLEREADER_DISABLE_GPU=1 electron .",
     "dev:free": "node scripts/dev-free.mjs",
-    "test": "node --test tests/"
+    "test": "node --test tests/",
+    "icon": "electron scripts/make-icon.cjs",
+    "font": "node scripts/build-font.mjs",
+    "dist": "npm run build && electron-builder --win --publish never",
+    "dist:dir": "npm run build && electron-builder --win --dir"
   },
   "dependencies": {
-    "msedge-tts": "^2.1.1",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "msedge-tts": "^2.1.1"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
@@ -34,9 +36,49 @@
     "concurrently": "^10.0.6",
     "cross-env": "^10.1.0",
     "electron": "^45.0.0",
+    "electron-builder": "^26.18.0",
     "oxlint": "^1.89.0",
     "typescript": "~7.0.2",
     "vite": "^8.3.5",
-    "wait-on": "^9.5.1"
-  }
+    "wait-on": "^9.5.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "build": {
+    "appId": "com.biblereader.desktop",
+    "productName": "BibleReader",
+    "copyright": "BibleReader",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "asar": true,
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json",
+      "!electron/doctor.cjs"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "BibleReader",
+      "artifactName": "BibleReader-Setup-${version}.${ext}"
+    }
+  },
+  "author": "BibleReader"
 }

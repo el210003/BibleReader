@@ -147,7 +147,7 @@ function createWindow() {
                  defaults: cat.defaults,
                };
                const voiceSel = document.querySelector('[data-testid="voice"]');
-               const hydrated = { translation: document.querySelectorAll('select')[0]?.value, voice: voiceSel?.value };
+               const hydrated = { translation: document.querySelector('[data-testid="translation"]')?.value, voice: voiceSel?.value };
 
                // 1) click-to-speak
                verses[15]?.click();
@@ -220,6 +220,34 @@ function createWindow() {
                  activeVerse: document.querySelector('.verse.active')?.dataset?.verse ?? null,
                };
 
+               // 4) UI localization + bundled font + sleep timer controls
+               const setSelect = (el, v) => {
+                 const desc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+                 desc.set.call(el, v);
+                 el.dispatchEvent(new Event('change', { bubbles: true }));
+               };
+               const langSel = document.querySelector('[data-testid="uilang"]');
+               const beforeLabels = [...document.querySelectorAll('.transport button')].map(b => b.textContent.trim());
+               let afterLabels = beforeLabels;
+               if (langSel) {
+                 setSelect(langSel, 'en');
+                 await wait(400);
+                 afterLabels = [...document.querySelectorAll('.transport button')].map(b => b.textContent.trim());
+               }
+               const fontOk = document.fonts ? document.fonts.check('16px "BibleReader TC"') : null;
+               const fontLoaded = [...(document.fonts || [])].some(f => f.family.includes('BibleReader'));
+               const sleepSel = [...document.querySelectorAll('.transport select')].some(s => [...s.options].some(o => o.value === '15'));
+               const i18nTest = { before: beforeLabels.slice(0, 2), after: afterLabels.slice(0, 2), fontOk, fontLoaded, sleepSel };
+
+               // 5) keyboard: Esc must stop playback, Ctrl+Shift+S must start speaking
+               window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+               await wait(400);
+               const queueAfterEsc = document.querySelector('[data-testid="queue"]')?.textContent ?? null;
+               window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, shiftKey: true, bubbles: true }));
+               await wait(2200);
+               const shortcutMarks = document.querySelectorAll('.vtext mark').length;
+               const keyboardTest = { queueAfterEsc, shortcutMarks, spoke: shortcutMarks > 0 };
+
                return JSON.stringify({
                  ...base,
                  initial,
@@ -227,12 +255,24 @@ function createWindow() {
                  clickTest,
                  selTest,
                  queueTest,
+                 i18nTest,
+                 keyboardTest,
                  prefs: localStorage.getItem('biblereader.prefs.v1'),
                });
                } catch (e) { return JSON.stringify({ error: String((e && (e.stack || e.message)) || e) }); }
              })()`
           )
-          .then((r) => console.log('[smoke] renderer state:', r))
+          .then((r) => {
+            console.log('[smoke] renderer state:', r);
+            try {
+              require('node:fs').writeFileSync(
+                require('node:path').join(require('node:os').tmpdir(), 'biblereader-smoke.json'),
+                r
+              );
+            } catch (e) {
+              console.log('[smoke] could not write result file:', String(e));
+            }
+          })
           .catch((e) => console.log('[smoke] renderer error:', String(e)))
           .finally(() => app.quit());
       }, 2500);

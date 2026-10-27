@@ -31,3 +31,7 @@ spikes/out/
 .cache-test/
 .cache-fb/
 .cache-dbg/
+
+# packaging output and font build cache
+release/
+.fontcache/

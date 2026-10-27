@@ -3,10 +3,10 @@
 A Windows desktop Bible reader that speaks what you highlight, in Traditional Chinese,
 English, Spanish, and French.
 
-**Status: M0–M4 implemented** — full canon, highlight-to-speak, continuous playback, disk
-cache with offline reads, and OS-voice fallback. Remaining: bundled font, UI localization,
-sleep timer, installer (M5). See `PROPOSAL.md` (incl. §12 as-built deviations) and
-`SPIKE-RESULTS.md` for the measurements that shaped it.
+**Status: M0–M5 implemented** — full canon, highlight-to-speak, continuous playback, disk
+cache with offline reads, OS-voice fallback, bundled CJK font, four-locale UI, keyboard
+shortcuts, and an NSIS installer. Not done: code signing. See `PROPOSAL.md` (§12 as-built
+deviations) and `SPIKE-RESULTS.md` for the measurements that shaped it.
 
 ---
 
@@ -47,13 +47,25 @@ That is: the 66-book canon loads with Traditional Chinese names, a verse click s
 and plays with live karaoke, a text selection surfaces the action bar and speaks only the
 selected span, and continuous playback auto-advanced to verse 2 of 36.
 
+## Install
+
+```bash
+npm run dist     # builds release/BibleReader-Setup-0.1.0.exe (NSIS, x64)
+```
+
+The installer is per-user, lets you choose the directory, and creates desktop/Start-menu
+shortcuts. It is **unsigned**, so Windows SmartScreen will warn on first launch
+("More info" → "Run anyway"). Code signing is the one remaining shipping task.
+
+Verified on the packaged build (not just from source): 66 books load, a verse click reads
+from the on-disk cache with correct karaoke spans, selection-to-speak works, the UI switches
+to English, the bundled font loads, Esc stops playback, Ctrl+Shift+S speaks.
+
 ## What is deliberately not built yet
 
-- Bundled CJK font (currently uses the system serif) — M1.
-- Sleep timer — M3.
-- UI localization: on-screen labels are Chinese-only even when the scripture is English,
-  Spanish, or French — M1.
-- Packaged installer — M5.
+- Code signing (SmartScreen warning until then).
+- Provider rate limiting/backoff hardening (M4 leftover).
+- Multi-hour soak testing of the Edge token path.
 
 ## Cache and offline behaviour
 
@@ -158,6 +170,9 @@ npm run reset        # clear persisted preferences
 npm run dev:free     # kill a stale dev server holding 5173
 npm run start:nogpu  # disable hardware acceleration (blank-window GPU fallback)
 npm test             # offset-math unit tests (normalization, boundary mapping)
+npm run font         # regenerate the subset CJK font (needs fonttools + brotli)
+npm run icon         # regenerate build/icon.png
+npm run dist         # build the NSIS installer
 npm run smoke        # headless-ish check: loads app, fetches a chapter, synthesizes a verse
 npm start            # build then run from dist/
 ```
@@ -175,6 +190,11 @@ spikes/                 M0 spike scripts (runnable with node)
 electron/books.cjs     localized 66-book name tables (zh-Hant/en/es/fr) + canon sections
 electron/cache.cjs     filesystem chapter/audio cache with LRU index + eviction
 electron/doctor.cjs    `npm run doctor` environment checks
+src/i18n.ts            UI strings for 繁體中文 / English / Español / Français
+src/assets/fonts/      subset Noto Serif TC woff2 (generated, 1.26 MB)
+scripts/build-font.mjs subsets the CJK font to the glyphs the CUV corpus uses
+scripts/make-icon.cjs  renders build/icon.png
+build/icon.png         installer/app icon
 scripts/predev.mjs     dev-server port preflight
 scripts/dev-free.mjs   frees port 5173
 spikes/out/             generated audio artifacts (gitignored)
