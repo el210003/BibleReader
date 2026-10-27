@@ -38,6 +38,24 @@ overlay is tracking the real word-boundary timeline.
 - Web Speech fallback when offline — M4.
 - Packaged installer — M5.
 
+## First-run defaults
+
+The shipped default scripture is Chinese (和合本 `CUV`), and the voice is chosen from the
+reader's system language list:
+
+| detected region | default voice |
+|---|---|
+| `zh-HK` / `zh-MO` / `yue` present | **Cantonese** `zh-HK-HiuGaaiNeural` |
+| anything else | Mandarin `zh-TW-HsiaoChenNeural` |
+
+Detection uses `app.getPreferredSystemLanguages()`, **not** `app.getLocale()` — Chromium
+normalises `zh-HK` to `zh-TW` at the UI-locale level, so `getLocale()` cannot tell Hong Kong
+from Taiwan. Choices are persisted after first run, so the locale default is a first-run
+behaviour only, not something that overrides the reader later.
+
+For QA, `BIBLEREADER_LOCALE_OVERRIDE=zh-TW` (or `zh-HK`) forces a branch without touching
+OS settings.
+
 ## Run it
 
 ```bash

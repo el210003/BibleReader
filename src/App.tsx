@@ -13,6 +13,27 @@ type Playback = {
   synthMs: number;
 };
 
+type Prefs = { translation: string; voice: string; book: number; chapter: number; region?: string };
+
+const PREFS_KEY = 'biblereader.prefs.v1';
+
+function loadPrefs(): Prefs | null {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    return raw ? (JSON.parse(raw) as Prefs) : null;
+  } catch {
+    return null;
+  }
+}
+
+function savePrefs(p: Prefs) {
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify(p));
+  } catch {
+    /* storage unavailable: defaults still apply next launch */
+  }
+}
+
 function base64ToBlobUrl(b64: string, mime = 'audio/mpeg') {
   const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);
@@ -47,6 +68,8 @@ export default function App() {
   const [playing, setPlaying] = useState(false);
   const [rate, setRate] = useState('1');
   const [status, setStatus] = useState('');
+  const [hydrated, setHydrated] = useState(false);
+  const [region, setRegion] = useState('default');
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef<number | null>(null);
 
@@ -55,16 +78,30 @@ export default function App() {
       .getCatalog()
       .then((c) => {
         setCatalog(c);
-        setVoice(c.translations.CUV?.defaultVoice ?? 'zh-TW-HsiaoChenNeural');
+        // Explicit user preference wins; otherwise use the locale-derived default.
+        // zh-HK / zh-MO locales therefore start in Cantonese on the 和合本 text.
+        const saved = loadPrefs();
+        if (saved && c.translations[saved.translation]) {
+          setTranslation(saved.translation);
+          setVoice(saved.voice);
+          setBook(saved.book);
+          setChapter(saved.chapter);
+          setRegion(saved.region ?? c.defaults.region);
+        } else {
+          setTranslation(c.defaults.translation);
+          setVoice(c.defaults.voice);
+          setRegion(c.defaults.region);
+        }
+        setHydrated(true);
       })
       .catch((e) => setError(String(e)));
   }, []);
 
-  // switching translation resets to that translation's default voice
+  // persist the reader's choices so the locale default is a first-run behaviour only
   useEffect(() => {
-    const meta = catalog?.translations[translation];
-    if (meta) setVoice(meta.defaultVoice);
-  }, [translation, catalog]);
+    if (!hydrated) return;
+    savePrefs({ translation, voice, book, chapter, region });
+  }, [hydrated, translation, voice, book, chapter, region]);
 
   const loadChapter = useCallback(async () => {
     setLoading(true);
@@ -82,8 +119,9 @@ export default function App() {
   }, [translation, book, chapter]);
 
   useEffect(() => {
+    if (!hydrated) return; // avoid fetching a default chapter before prefs/locale defaults apply
     loadChapter();
-  }, [loadChapter]);
+  }, [loadChapter, hydrated]);
 
   // karaoke loop: drive the overlay from audio currentTime
   useEffect(() => {
@@ -169,7 +207,17 @@ export default function App() {
         <div className="controls">
           <label>
             譯本
-            <select value={translation} onChange={(e) => setTranslation(e.target.value)}>
+            <select
+              value={translation}
+              onChange={(e) => {
+                const next = e.target.value;
+                setTranslation(next);
+                // reset to a voice that suits the new translation, preferring one that
+                // matches this machine's locale (es-MX -> es-MX voice, zh-HK -> Cantonese)
+                const v = catalog?.preferredVoice[next] ?? catalog?.translations[next]?.defaultVoice;
+                if (v) setVoice(v);
+              }}
+            >
               {catalog &&
                 Object.entries(catalog.translations).map(([k, v]) => (
                   <option key={k} value={k}>

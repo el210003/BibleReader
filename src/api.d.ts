@@ -6,6 +6,11 @@ export type Catalog = {
     { name: string; lang: string; voices: VoiceOption[]; defaultVoice: string }
   >;
   books: { id: number; name: string }[];
+  systemLocale: string;
+  preferredLanguages: string[];
+  effectiveLocales: string[];
+  defaults: { translation: string; voice: string; region: string };
+  preferredVoice: Record<string, string>;
 };
 
 export type Verse = {

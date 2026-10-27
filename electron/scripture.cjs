@@ -69,6 +69,46 @@ const BOOKS = [
   { id: 45, name: 'Romans' },
 ];
 
+// Region detection. `app.getLocale()` is NOT usable for this: Chromium normalises
+// zh-HK to zh-TW at the UI-locale level (verified: --lang=zh-HK yields getLocale()==='zh-TW').
+// The reliable signal is the preferred-language list, which keeps the full tag
+// (e.g. 'zh-Hant-HK').
+const HK_TAGS = /^(zh-hk|zh-hant-hk|zh-mo|zh-hant-mo|yue)(-|$)/i;
+
+function regionFromLocales(locales) {
+  const list = (Array.isArray(locales) ? locales : [locales]).map((l) => String(l || ''));
+  return list.some((l) => HK_TAGS.test(l)) ? 'zh-HK' : 'zh-TW';
+}
+
+// First-run defaults. The shipped default scripture language is Chinese (和合本), as
+// specified — an English or Spanish OS locale still opens in 和合本. What the locale does
+// decide is which Chinese voice: Hong Kong / Macau readers get Cantonese (zh-HK),
+// everyone else gets Mandarin (zh-TW). Everything is overridable and then persisted.
+function defaultsForLocale(locales) {
+  const region = regionFromLocales(locales);
+  return region === 'zh-HK'
+    ? { translation: 'CUV', voice: 'zh-HK-HiuGaaiNeural', region }
+    : { translation: 'CUV', voice: 'zh-TW-HsiaoChenNeural', region };
+}
+
+// When the reader switches translation, prefer a voice matching one of their locales
+// (es-MX reader -> es-MX voice, zh-HK reader -> Cantonese), else the translation default.
+function pickVoiceForLocale(voices, locales, fallbackId) {
+  const list = (Array.isArray(locales) ? locales : [locales]).map((l) => String(l || '').toLowerCase());
+  for (const l of list) {
+    const exact = voices.find((v) => v.locale.toLowerCase() === l);
+    if (exact) return exact.id;
+  }
+  for (const l of list) {
+    // take the last subtag: 'zh-hant-hk' -> 'hk', not 'hant'
+    const region = l.split('-').pop();
+    if (!region || region === l) continue;
+    const sameRegion = voices.find((v) => v.locale.toLowerCase().endsWith('-' + region));
+    if (sameRegion) return sameRegion.id;
+  }
+  return fallbackId;
+}
+
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
 
 function stripHtml(html) {
@@ -135,4 +175,13 @@ async function getChapter({ translation, book, chapter }) {
   });
 }
 
-module.exports = { getChapter, normalizeText, stripHtml, TRANSLATIONS, BOOKS };
+module.exports = {
+  getChapter,
+  normalizeText,
+  stripHtml,
+  defaultsForLocale,
+  pickVoiceForLocale,
+  regionFromLocales,
+  TRANSLATIONS,
+  BOOKS,
+};
