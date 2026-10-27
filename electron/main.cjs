@@ -41,15 +41,26 @@ function createWindow() {
           .executeJavaScript(
             `(async () => {
                const verses = document.querySelectorAll('.verse');
-               const v = verses[15];
-               const text = v?.querySelector('.vtext')?.textContent ?? '';
-               const r = await window.api.speak({ text, voice: 'zh-TW-HsiaoChenNeural', locale: 'zh-TW' });
-               return JSON.stringify({
+               const base = {
                  hasApi: !!window.api,
                  title: document.querySelector('.brand-cn')?.textContent,
                  verses: verses.length,
                  firstVerse: document.querySelector('.vtext')?.textContent?.slice(0, 24),
-                 speak: { spans: r.spans.length, unmapped: r.unmapped, durationMs: r.durationMs, bytes: r.audioBase64.length }
+               };
+               // exercise the real click -> speak -> karaoke path
+               verses[15]?.click();
+               await new Promise(r => setTimeout(r, 2500));
+               const audio = document.querySelector('audio');
+               return JSON.stringify({
+                 ...base,
+                 ui: {
+                   marks: document.querySelectorAll('.vtext mark').length,
+                   activeMarks: document.querySelectorAll('.vtext mark.on').length,
+                   audioSrc: audio?.src?.startsWith('blob:') ?? false,
+                   playing: audio ? !audio.paused : false,
+                   currentTime: audio ? Number(audio.currentTime.toFixed(2)) : null,
+                   status: [...document.querySelectorAll('.pill')].map(p => p.textContent),
+                 }
                });
              })()`
           )

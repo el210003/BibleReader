@@ -19,8 +19,16 @@ measurements that shaped it.
 - Speed control re-synthesizes server-side (0.75×–2×).
 - In-memory audio cache.
 
-Verified: 18/18 word boundaries mapped to verse offsets, 0 unmapped, 0 span mismatches,
-9,064 ms of audio for CUV John 3:16, synthesis in ~0.5 s.
+Verified end-to-end by `npm run smoke`, which drives the real UI:
+
+```
+{"verses":36,"ui":{"marks":18,"activeMarks":1,"audioSrc":true,"playing":true,
+ "currentTime":2.06,"status":["第 16 節","8.1s","18 boundaries","340ms"]}}
+```
+
+That is: 36 verses of CUV John 3 loaded and normalized, verse 16 clicked, audio synthesized
+in 340 ms, playback running at t=2.06 s, and exactly one highlight mark active — the karaoke
+overlay is tracking the real word-boundary timeline.
 
 ## What is deliberately not built yet
 

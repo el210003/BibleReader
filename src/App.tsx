@@ -121,8 +121,6 @@ export default function App() {
           synthMs,
         });
         setStatus('');
-        // start playback on the next tick, once the <audio> src is applied
-        setTimeout(() => audioRef.current?.play().catch((e) => setError(String(e))), 0);
       } catch (e) {
         setStatus('');
         setError(String(e));
@@ -130,6 +128,15 @@ export default function App() {
     },
     [catalog, translation, rate, playback]
   );
+
+  // start playback once the new source is committed to the DOM
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a || !playback) return;
+    setActiveSpan(-1);
+    a.load();
+    a.play().catch((e) => setError(String(e)));
+  }, [playback]);
 
   const activeVerse = playback?.verse ?? null;
   const segments = useMemo(() => {
