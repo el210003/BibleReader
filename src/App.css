@@ -228,3 +228,35 @@ button.primary {
   background: #fbeee6;
   color: #8a3b12;
 }
+
+/* ---------- selection action bar ---------- */
+.selbar {
+  position: fixed;
+  transform: translate(-50%, calc(-100% - 8px));
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 6px 20px rgba(36, 31, 26, 0.18);
+  z-index: 20;
+}
+
+.selbar button {
+  font-size: 12px;
+  padding: 4px 9px;
+}
+
+/* book picker groups */
+.controls optgroup {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+/* active verse marker while speaking */
+.verse.active .vnum {
+  color: var(--accent);
+  font-weight: 700;
+}

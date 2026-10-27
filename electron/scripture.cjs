@@ -2,7 +2,38 @@
 // M0 scope: bolls.life only, four translations. The provider adapter interface and the
 // getBible fallback are M1 work.
 
+const books = require('./books.cjs');
+
 const UA = 'BibleReader/0.1 (+https://github.com/bible-reader)';
+
+const booksCache = new Map();
+
+async function getBooks(translation) {
+  const meta = TRANSLATIONS[translation];
+  if (!meta) throw new Error(`unknown translation ${translation}`);
+  if (booksCache.has(translation)) return booksCache.get(translation);
+
+  const res = await fetch(`https://bolls.life/get-books/${translation}/`, {
+    headers: { 'User-Agent': UA },
+  });
+  if (!res.ok) throw new Error(`bolls.life books ${res.status} ${res.statusText}`);
+  const rows = await res.json();
+
+  const out = rows.map((b) => {
+    const section = books.sectionOf(b.bookid);
+    return {
+      id: b.bookid,
+      chapters: b.chapters,
+      // provider names are unreliable for display (CUV returns Simplified, WEB has apocrypha)
+      name: books.localizedBookName(b.bookid, meta.lang, b.name),
+      providerName: b.name,
+      section,
+    };
+  });
+  const result = { books: out, sections: books.sectionLabels(meta.lang) };
+  booksCache.set(translation, result);
+  return result;
+}
 
 // Voice catalogue. zh-HK (Cantonese) voices read the same written-Chinese text: Hong Kong
 // churches read 和合本 in Cantonese, so the characters are pronounced in Cantonese rather
@@ -61,13 +92,6 @@ const TRANSLATIONS = {
     defaultVoice: 'fr-FR-DeniseNeural',
   },
 };
-
-const BOOKS = [
-  { id: 1, name: 'Genesis' },
-  { id: 19, name: 'Psalms' },
-  { id: 43, name: 'John' },
-  { id: 45, name: 'Romans' },
-];
 
 // Region detection. `app.getLocale()` is NOT usable for this: Chromium normalises
 // zh-HK to zh-TW at the UI-locale level (verified: --lang=zh-HK yields getLocale()==='zh-TW').
@@ -182,6 +206,6 @@ module.exports = {
   defaultsForLocale,
   pickVoiceForLocale,
   regionFromLocales,
+  getBooks,
   TRANSLATIONS,
-  BOOKS,
 };

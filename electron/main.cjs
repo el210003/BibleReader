@@ -49,43 +49,95 @@ function createWindow() {
         win.webContents
           .executeJavaScript(
             `(async () => {
+               try {
+               const wait = (ms) => new Promise(r => setTimeout(r, ms));
                const verses = document.querySelectorAll('.verse');
+               const cat = await window.api.getCatalog();
+               const books = await window.api.getBooks({ translation: 'CUV' });
                const base = {
                  hasApi: !!window.api,
                  title: document.querySelector('.brand-cn')?.textContent,
                  verses: verses.length,
                  firstVerse: document.querySelector('.vtext')?.textContent?.slice(0, 24),
+                 books: {
+                   count: books.books.length,
+                   first: books.books[0]?.name,
+                   john: books.books.find(b => b.id === 43)?.name,
+                   last: books.books[books.books.length - 1]?.name,
+                   sections: books.sections,
+                 },
                };
-               const cat = await window.api.getCatalog();
                const initial = {
                  systemLocale: cat.systemLocale,
-                 preferredLanguages: cat.preferredLanguages,
                  effectiveLocales: cat.effectiveLocales,
                  defaults: cat.defaults,
-                 preferredVoice: cat.preferredVoice,
                };
                const voiceSel = document.querySelector('[data-testid="voice"]');
-               const translationSel = document.querySelectorAll('select')[0];
-               const voiceOptions = voiceSel ? [...voiceSel.options].map(o => o.value) : [];
-               const hydrated = { translation: translationSel?.value, voice: voiceSel?.value };
+               const hydrated = { translation: document.querySelectorAll('select')[0]?.value, voice: voiceSel?.value };
+
+               // 1) click-to-speak
                verses[15]?.click();
-               await new Promise(r => setTimeout(r, 2500));
-               const audio = document.querySelector('audio');
+               await wait(2500);
+               const a1 = document.querySelector('audio');
+               const clickTest = {
+                 marks: document.querySelectorAll('.vtext mark').length,
+                 activeMarks: document.querySelectorAll('.vtext mark.on').length,
+                 playing: a1 ? !a1.paused : false,
+                 currentTime: a1 ? Number(a1.currentTime.toFixed(2)) : null,
+               };
+
+               // 2) selection -> speak on an untouched verse
+               const vt = document.querySelector('.verse[data-verse="1"] .vtext');
+               const tn = vt && vt.firstChild;
+               let selTest = null;
+               if (tn && tn.nodeType === 3) {
+                 const range = document.createRange();
+                 range.setStart(tn, 0);
+                 range.setEnd(tn, Math.min(4, tn.length));
+                 const sel = window.getSelection();
+                 sel.removeAllRanges();
+                 sel.addRange(range);
+                 document.querySelector('.reader').dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+                 await wait(400);
+                 const bar = document.querySelector('.selbar');
+                 const barButtons = bar ? [...bar.querySelectorAll('button')].map(b => b.textContent.trim()) : [];
+                 bar?.querySelector('button.primary')?.click();
+                 await wait(2500);
+                 const a2 = document.querySelector('audio');
+                 selTest = {
+                   barShown: !!bar,
+                   barButtons,
+                   selectedText: range.toString(),
+                   label: [...document.querySelectorAll('.pill')].map(p => p.textContent).find(t => t && t.includes('選取')) ?? null,
+                   marks: document.querySelectorAll('.vtext mark').length,
+                   playing: a2 ? !a2.paused : false,
+                   currentTime: a2 ? Number(a2.currentTime.toFixed(2)) : null,
+                 };
+               }
+
+               // 3) continuous queue
+               const contBtn = [...document.querySelectorAll('footer button')].find(b => b.textContent.includes('連續'));
+               contBtn?.click();
+               await wait(2500);
+               const queuePill = document.querySelector('[data-testid="queue"]')?.textContent ?? null;
+               const a3 = document.querySelector('audio');
+               const queueTest = {
+                 buttonFound: !!contBtn,
+                 queuePill,
+                 playing: a3 ? !a3.paused : false,
+                 activeVerse: document.querySelector('.verse.active')?.dataset?.verse ?? null,
+               };
+
                return JSON.stringify({
                  ...base,
                  initial,
                  hydrated,
-                 ui: {
-                   voiceOptions,
-                   marks: document.querySelectorAll('.vtext mark').length,
-                   activeMarks: document.querySelectorAll('.vtext mark.on').length,
-                   audioSrc: audio?.src?.startsWith('blob:') ?? false,
-                   playing: audio ? !audio.paused : false,
-                   currentTime: audio ? Number(audio.currentTime.toFixed(2)) : null,
-                   status: [...document.querySelectorAll('.pill')].map(p => p.textContent),
-                   prefs: localStorage.getItem('biblereader.prefs.v1'),
-                 }
+                 clickTest,
+                 selTest,
+                 queueTest,
+                 prefs: localStorage.getItem('biblereader.prefs.v1'),
                });
+               } catch (e) { return JSON.stringify({ error: String((e && (e.stack || e.message)) || e) }); }
              })()`
           )
           .then((r) => console.log('[smoke] renderer state:', r))
@@ -113,13 +165,16 @@ ipcMain.handle('catalog:get', () => {
   }
   return {
     translations: scripture.TRANSLATIONS,
-    books: scripture.BOOKS,
     systemLocale,
     preferredLanguages: preferred,
     effectiveLocales: effective,
     defaults: scripture.defaultsForLocale(effective),
     preferredVoice,
   };
+});
+
+ipcMain.handle('scripture:books', async (_e, { translation }) => {
+  return scripture.getBooks(translation);
 });
 
 ipcMain.handle('scripture:chapter', async (_e, args) => {

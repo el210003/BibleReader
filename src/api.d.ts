@@ -5,13 +5,22 @@ export type Catalog = {
     string,
     { name: string; lang: string; voices: VoiceOption[]; defaultVoice: string }
   >;
-  books: { id: number; name: string }[];
   systemLocale: string;
   preferredLanguages: string[];
   effectiveLocales: string[];
   defaults: { translation: string; voice: string; region: string };
   preferredVoice: Record<string, string>;
 };
+
+export type Book = {
+  id: number;
+  chapters: number;
+  name: string;
+  providerName: string;
+  section: 'old' | 'new' | 'deutero';
+};
+
+export type BookList = { books: Book[]; sections: Record<string, string> };
 
 export type Verse = {
   verse: number;
@@ -37,6 +46,7 @@ declare global {
   interface Window {
     api: {
       getCatalog(): Promise<Catalog>;
+      getBooks(args: { translation: string }): Promise<BookList>;
       getChapter(args: { translation: string; book: number; chapter: number }): Promise<Verse[]>;
       speak(args: { text: string; voice: string; locale: string; rate?: string }): Promise<SpeakResult>;
     };

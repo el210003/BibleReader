@@ -3,39 +3,52 @@
 A Windows desktop Bible reader that speaks what you highlight, in Traditional Chinese,
 English, Spanish, and French.
 
-**Status: M0 complete** — scaffolded app runs end-to-end (fetch chapter → synthesize →
-karaoke highlight). See `PROPOSAL.md` for the plan and `SPIKE-RESULTS.md` for the
-measurements that shaped it.
+**Status: M1/M3 core complete** — the app reads the full canon, speaks highlighted text,
+and plays chapters continuously. See `PROPOSAL.md` for the plan and `SPIKE-RESULTS.md` for
+the measurements that shaped it.
 
 ---
 
 ## What works right now
 
-- Loads John 3 (and Genesis 1 / Psalms 23 / Romans 8) from bolls.life in `CUV`, `CUNP`,
-  `WEB`, `RV1960`, `FRLSG`.
+- **Full canon navigation.** All 66 books for `CUV`, `CUNP`, `RV1960`, `FRLSG`; 83 for
+  `WEB` (its 17 deuterocanonical books are grouped separately). Book names are localized
+  (繁體中文 / English / Español / Français) because the provider's own names are wrong for
+  display — CUV returns Simplified ("创世记") despite Traditional text.
 - `CUV` character-spacing is normalized (the 1919 edition arrives as `「 神 愛 世 人 ，`).
-- Click any verse → synthesized audio plays in Mandarin (`zh-TW`), Cantonese (`zh-HK`), English, Spanish, or French, with phrase-level karaoke highlighting driven by real Edge word-boundary timings. A voice picker offers all six Chinese voices plus the Latin-script variants.
+- **Highlight-to-speak.** Select any text inside a verse — or drag across verses — and a
+  floating bar offers 朗讀選取 / 整節. The selected span is synthesized and karaoke-highlighted
+  in place, across verse boundaries if the selection spans them.
+- Click any verse → speak that verse. Voices cover Mandarin (`zh-TW`), Cantonese (`zh-HK`),
+  English, Spanish (`es-ES`/`es-MX`) and French (`fr-FR`/`fr-CA`), with phrase-level karaoke
+  driven by real Edge word-boundary timings.
+- **Continuous chapter playback** with prefetch of the next verse while the current one plays,
+  auto-advance, auto-scroll to the spoken verse, and stop-at-end.
 - Speed control re-synthesizes server-side (0.75×–2×).
-- In-memory audio cache.
+- In-memory audio cache; choices persist across launches.
 
-Verified end-to-end by `npm run smoke`, which drives the real UI:
+Verified end-to-end by `npm run smoke`, which drives the real UI (click-to-speak,
+selection-to-speak, and continuous playback):
 
 ```
-{"verses":36,"ui":{"marks":18,"activeMarks":1,"audioSrc":true,"playing":true,
- "currentTime":2.06,"status":["第 16 節","8.1s","18 boundaries","340ms"]}}
+{"books":{"count":66,"first":"創世記","john":"約翰福音","last":"啟示錄"},
+ "clickTest":{"marks":20,"activeMarks":1,"playing":true,"currentTime":1.99},
+ "selTest":{"barShown":true,"barButtons":["▶ 朗讀選取","整節","×"],"label":"選取範圍","marks":4,"playing":true},
+ "queueTest":{"queuePill":"2/36","playing":true,"activeVerse":"1"}}
 ```
 
-That is: 36 verses of CUV John 3 loaded and normalized, verse 16 clicked, audio synthesized
-in 340 ms, playback running at t=2.06 s, and exactly one highlight mark active — the karaoke
-overlay is tracking the real word-boundary timeline.
+That is: the 66-book canon loads with Traditional Chinese names, a verse click synthesizes
+and plays with live karaoke, a text selection surfaces the action bar and speaks only the
+selected span, and continuous playback auto-advanced to verse 2 of 36.
 
 ## What is deliberately not built yet
 
-- Disk cache (LRU) — M2.
-- Full 66-book name tables for all four locales (only 4 books are listed) — M1.
-- Bundled CJK font (currently uses system serif) — M1.
-- Continuous chapter playback, prefetch, sleep timer — M2/M3.
+- Disk cache (LRU) — audio and chapters vanish on restart — M2.
+- Bundled CJK font (currently uses the system serif) — M1.
+- Sleep timer — M3.
 - Web Speech fallback when offline — M4.
+- UI localization: on-screen labels are Chinese-only even when the scripture is English,
+  Spanish, or French — M1.
 - Packaged installer — M5.
 
 ## First-run defaults
@@ -74,6 +87,7 @@ electron/scripture.cjs  bolls.life provider + CUV normalization
 electron/tts.cjs        Edge TTS synthesis + word-boundary → highlight-plan mapping
 src/App.tsx             reader UI, karaoke overlay, transport
 spikes/                 M0 spike scripts (runnable with node)
+electron/books.cjs     localized 66-book name tables (zh-Hant/en/es/fr) + canon sections
 spikes/out/             generated audio artifacts (gitignored)
 ```
 
