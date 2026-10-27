@@ -36,6 +36,7 @@ function buildSegments(text: string, spans: Span[]) {
 export default function App() {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [translation, setTranslation] = useState('CUV');
+  const [voice, setVoice] = useState('zh-TW-HsiaoChenNeural');
   const [book, setBook] = useState(43);
   const [chapter, setChapter] = useState(3);
   const [verses, setVerses] = useState<Verse[]>([]);
@@ -50,8 +51,20 @@ export default function App() {
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
-    window.api.getCatalog().then(setCatalog).catch((e) => setError(String(e)));
+    window.api
+      .getCatalog()
+      .then((c) => {
+        setCatalog(c);
+        setVoice(c.translations.CUV?.defaultVoice ?? 'zh-TW-HsiaoChenNeural');
+      })
+      .catch((e) => setError(String(e)));
   }, []);
+
+  // switching translation resets to that translation's default voice
+  useEffect(() => {
+    const meta = catalog?.translations[translation];
+    if (meta) setVoice(meta.defaultVoice);
+  }, [translation, catalog]);
 
   const loadChapter = useCallback(async () => {
     setLoading(true);
@@ -97,14 +110,15 @@ export default function App() {
   const speak = useCallback(
     async (verse: Verse) => {
       const meta = catalog?.translations[translation];
-      if (!meta) return;
+      const chosen = meta?.voices.find((v) => v.id === voice);
+      if (!meta || !chosen) return;
       setStatus('synthesizing…');
       const t0 = performance.now();
       try {
         const res: SpeakResult = await window.api.speak({
           text: verse.text,
-          voice: meta.voice,
-          locale: meta.locale,
+          voice: chosen.id,
+          locale: chosen.locale,
           rate,
         });
         const synthMs = Math.round(performance.now() - t0);
@@ -126,7 +140,7 @@ export default function App() {
         setError(String(e));
       }
     },
-    [catalog, translation, rate, playback]
+    [catalog, translation, voice, rate, playback]
   );
 
   // start playback once the new source is committed to the DOM
@@ -170,6 +184,16 @@ export default function App() {
               {catalog?.books.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            聲音
+            <select data-testid="voice" value={voice} onChange={(e) => setVoice(e.target.value)}>
+              {catalog?.translations[translation]?.voices.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.label}
                 </option>
               ))}
             </select>

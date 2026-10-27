@@ -48,12 +48,15 @@ function createWindow() {
                  firstVerse: document.querySelector('.vtext')?.textContent?.slice(0, 24),
                };
                // exercise the real click -> speak -> karaoke path
+               const voiceSel = document.querySelector('[data-testid="voice"]');
+               const voiceOptions = voiceSel ? [...voiceSel.options].map(o => o.value) : [];
                verses[15]?.click();
                await new Promise(r => setTimeout(r, 2500));
                const audio = document.querySelector('audio');
                return JSON.stringify({
                  ...base,
                  ui: {
+                   voiceOptions,
                    marks: document.querySelectorAll('.vtext mark').length,
                    activeMarks: document.querySelectorAll('.vtext mark.on').length,
                    audioSrc: audio?.src?.startsWith('blob:') ?? false,

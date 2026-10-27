@@ -182,6 +182,29 @@ Tested in a real Electron renderer via `speechSynthesis`.
 
 Note: the first version of this probe reported "es did not start" — that was a test artifact from queuing utterances without `cancel()` between them, not a real failure. Corrected above.
 
+## Spike 09 — zh-HK (Cantonese) voices
+
+Cantonese was initially deferred on the grounds that no written-Cantonese translation exists. That reasoning was wrong in practice: Hong Kong churches read 和合本 aloud in Cantonese, so a `zh-HK` voice over the same text is the correct behaviour, not a mismatch.
+
+CUV John 3:16, same normalized text, four voices:
+
+| voice | audio | word boundaries | mapped | unmapped | char coverage |
+|---|---|---|---|---|---|
+| `zh-HK-HiuGaaiNeural` | 10,632 ms | 20 | **20** | 0 | 83.3% |
+| `zh-HK-HiuMaanNeural` | 8,208 ms | 20 | **20** | 0 | 83.3% |
+| `zh-HK-WanLungNeural` | 7,704 ms | 20 | **20** | 0 | 83.3% |
+| `zh-TW-HsiaoChenNeural` (control) | 8,064 ms | 18 | **18** | 0 | 83.3% |
+
+All three Cantonese voices work through the app's real modules (`electron/tts.cjs`), not just the spike harness, with zero unmapped boundaries.
+
+Differences worth knowing:
+
+- Cantonese output is slower (10.6 s vs 8.1 s for the same verse) and boundary granularity is finer (`他 | 的` instead of `他的`).
+- First-call latency was higher in the spike (1.2–2.5 s vs 0.4 s), consistent with per-connection setup on a fresh socket rather than a per-locale penalty.
+- Coverage is identical (83.3%), so the highlight overlay behaves the same.
+
+Cantonese is therefore wired in as a **voice variant**, not a translation. `zh-TW` remains the default.
+
 ## What is now de-risked
 
 - Edge TTS works today with no key and no token failures.

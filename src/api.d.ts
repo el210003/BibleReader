@@ -1,5 +1,10 @@
+export type VoiceOption = { id: string; locale: string; label: string };
+
 export type Catalog = {
-  translations: Record<string, { name: string; lang: string; voice: string; locale: string }>;
+  translations: Record<
+    string,
+    { name: string; lang: string; voices: VoiceOption[]; defaultVoice: string }
+  >;
   books: { id: number; name: string }[];
 };
 

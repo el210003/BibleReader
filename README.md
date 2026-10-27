@@ -14,8 +14,7 @@ measurements that shaped it.
 - Loads John 3 (and Genesis 1 / Psalms 23 / Romans 8) from bolls.life in `CUV`, `CUNP`,
   `WEB`, `RV1960`, `FRLSG`.
 - `CUV` character-spacing is normalized (the 1919 edition arrives as `「 神 愛 世 人 ，`).
-- Click any verse → synthesized `zh-TW` / `en-US` / `es-ES` / `fr-FR` audio plays, with
-  phrase-level karaoke highlighting driven by real Edge word-boundary timings.
+- Click any verse → synthesized audio plays in Mandarin (`zh-TW`), Cantonese (`zh-HK`), English, Spanish, or French, with phrase-level karaoke highlighting driven by real Edge word-boundary timings. A voice picker offers all six Chinese voices plus the Latin-script variants.
 - Speed control re-synthesizes server-side (0.75×–2×).
 - In-memory audio cache.
 

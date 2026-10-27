@@ -4,12 +4,62 @@
 
 const UA = 'BibleReader/0.1 (+https://github.com/bible-reader)';
 
+// Voice catalogue. zh-HK (Cantonese) voices read the same written-Chinese text: Hong Kong
+// churches read 和合本 in Cantonese, so the characters are pronounced in Cantonese rather
+// than translated. It is a voice variant, not a separate translation.
+const ZH_HANT_VOICES = [
+  { id: 'zh-TW-HsiaoChenNeural', locale: 'zh-TW', label: '台灣華語 · 女聲 HsiaoChen' },
+  { id: 'zh-TW-YunJheNeural', locale: 'zh-TW', label: '台灣華語 · 男聲 YunJhe' },
+  { id: 'zh-TW-HsiaoYuNeural', locale: 'zh-TW', label: '台灣華語 · 女聲 HsiaoYu' },
+  { id: 'zh-HK-HiuGaaiNeural', locale: 'zh-HK', label: '粵語 · 女聲 HiuGaai' },
+  { id: 'zh-HK-HiuMaanNeural', locale: 'zh-HK', label: '粵語 · 女聲 HiuMaan' },
+  { id: 'zh-HK-WanLungNeural', locale: 'zh-HK', label: '粵語 · 男聲 WanLung' },
+];
+
 const TRANSLATIONS = {
-  CUV: { name: '和合本 (繁體)', lang: 'zh-Hant', voice: 'zh-TW-HsiaoChenNeural', locale: 'zh-TW' },
-  CUNP: { name: '新標點和合本', lang: 'zh-Hant', voice: 'zh-TW-HsiaoChenNeural', locale: 'zh-TW' },
-  WEB: { name: 'World English Bible', lang: 'en', voice: 'en-US-AvaNeural', locale: 'en-US' },
-  RV1960: { name: 'Reina-Valera 1960', lang: 'es', voice: 'es-ES-ElviraNeural', locale: 'es-ES' },
-  FRLSG: { name: 'Segond 1910', lang: 'fr', voice: 'fr-FR-DeniseNeural', locale: 'fr-FR' },
+  CUV: {
+    name: '和合本 (繁體)',
+    lang: 'zh-Hant',
+    voices: ZH_HANT_VOICES,
+    defaultVoice: 'zh-TW-HsiaoChenNeural',
+  },
+  CUNP: {
+    name: '新標點和合本',
+    lang: 'zh-Hant',
+    voices: ZH_HANT_VOICES,
+    defaultVoice: 'zh-TW-HsiaoChenNeural',
+  },
+  WEB: {
+    name: 'World English Bible',
+    lang: 'en',
+    voices: [
+      { id: 'en-US-AvaNeural', locale: 'en-US', label: 'English US · Female Ava' },
+      { id: 'en-US-AndrewNeural', locale: 'en-US', label: 'English US · Male Andrew' },
+      { id: 'en-GB-SoniaNeural', locale: 'en-GB', label: 'English UK · Female Sonia' },
+    ],
+    defaultVoice: 'en-US-AvaNeural',
+  },
+  RV1960: {
+    name: 'Reina-Valera 1960',
+    lang: 'es',
+    voices: [
+      { id: 'es-ES-ElviraNeural', locale: 'es-ES', label: 'Español ES · Elvira' },
+      { id: 'es-ES-AlvaroNeural', locale: 'es-ES', label: 'Español ES · Álvaro' },
+      { id: 'es-MX-DaliaNeural', locale: 'es-MX', label: 'Español MX · Dalia' },
+      { id: 'es-MX-JorgeNeural', locale: 'es-MX', label: 'Español MX · Jorge' },
+    ],
+    defaultVoice: 'es-ES-ElviraNeural',
+  },
+  FRLSG: {
+    name: 'Segond 1910',
+    lang: 'fr',
+    voices: [
+      { id: 'fr-FR-DeniseNeural', locale: 'fr-FR', label: 'Français FR · Denise' },
+      { id: 'fr-FR-HenriNeural', locale: 'fr-FR', label: 'Français FR · Henri' },
+      { id: 'fr-CA-SylvieNeural', locale: 'fr-CA', label: 'Français CA · Sylvie' },
+    ],
+    defaultVoice: 'fr-FR-DeniseNeural',
+  },
 };
 
 const BOOKS = [
