@@ -3,6 +3,11 @@
 // normalized verse offsets, with punctuation bridging.
 
 const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
+const cache = require('./cache.cjs');
+
+// L1: in-process memory cache. L2: disk cache (cache.cjs).
+const memory = new Map();
+const MEMORY_MAX = 120;
 
 const MPEG2_L3_BITRATE = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, -1];
 const MPEG1_L3_BITRATE = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, -1];
@@ -107,11 +112,38 @@ async function synthesize({ text, voice, locale, rate }) {
 }
 
 async function speak({ text, voice, locale, rate }) {
+  const key = cache.audioKey({ voice, rate, text });
+
+  const l1 = memory.get(key);
+  if (l1) {
+    memory.delete(key);
+    memory.set(key, l1); // refresh LRU position
+    return { ...l1, source: 'memory' };
+  }
+
+  const l2 = cache.getAudio(key);
+  if (l2) {
+    const result = {
+      audioBase64: l2.buffer.toString('base64'),
+      durationMs: l2.durationMs,
+      spans: l2.spans,
+      unmapped: l2.unmapped,
+      boundaryCount: l2.boundaryCount,
+      trailingSilenceMs: l2.trailingSilenceMs,
+    };
+    memory.set(key, result);
+    return { ...result, source: 'disk' };
+  }
+
+  if (process.env.BIBLEREADER_FORCE_FALLBACK === '1') {
+    throw new Error('Edge TTS disabled (BIBLEREADER_FORCE_FALLBACK=1)');
+  }
+
   const { audio, metaChunks } = await synthesize({ text, voice, locale, rate });
   const boundaries = parseWordBoundaries(metaChunks);
   const { spans, unmapped } = buildSpans(boundaries, text);
   const durationMs = mp3DurationMs(audio);
-  return {
+  const result = {
     audioBase64: audio.toString('base64'),
     durationMs,
     spans,
@@ -120,6 +152,22 @@ async function speak({ text, voice, locale, rate }) {
     // measured trailing silence (M0: 500-950ms); exposed so the UI can trim if desired
     trailingSilenceMs: spans.length ? Math.max(0, durationMs - (spans.at(-1).tMs + spans.at(-1).durMs)) : durationMs,
   };
+
+  cache.putAudio(key, audio, {
+    voice,
+    locale,
+    rate: rate || 'default',
+    durationMs,
+    spans,
+    unmapped,
+    boundaryCount: boundaries.length,
+    trailingSilenceMs: result.trailingSilenceMs,
+    textHash: key,
+  });
+
+  memory.set(key, result);
+  if (memory.size > MEMORY_MAX) memory.delete(memory.keys().next().value);
+  return { ...result, source: 'network' };
 }
 
 module.exports = { speak, mp3DurationMs, buildSpans };

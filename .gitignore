@@ -25,3 +25,8 @@ dist-ssr
 
 # spike artifacts
 spikes/out/
+
+# test cache dirs
+.cache-test/
+.cache-fb/
+.cache-dbg/

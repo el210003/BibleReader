@@ -30,6 +30,8 @@ export type Verse = {
   removedSpaces: number;
 };
 
+export type ChapterResult = { verses: Verse[]; fromCache: boolean; fetchedAt: number };
+
 export type Span = { charStart: number; charEnd: number; tMs: number; durMs: number };
 
 export type SpeakResult = {
@@ -39,7 +41,15 @@ export type SpeakResult = {
   unmapped: number;
   boundaryCount: number;
   trailingSilenceMs: number;
-  cached: boolean;
+  source: 'memory' | 'disk' | 'network';
+};
+
+export type CacheStats = {
+  root: string;
+  capBytes: number;
+  totalBytes: number;
+  chapters: number;
+  audio: number;
 };
 
 declare global {
@@ -47,8 +57,10 @@ declare global {
     api: {
       getCatalog(): Promise<Catalog>;
       getBooks(args: { translation: string }): Promise<BookList>;
-      getChapter(args: { translation: string; book: number; chapter: number }): Promise<Verse[]>;
+      getChapter(args: { translation: string; book: number; chapter: number }): Promise<ChapterResult>;
       speak(args: { text: string; voice: string; locale: string; rate?: string }): Promise<SpeakResult>;
+      cacheStats(): Promise<CacheStats>;
+      clearCache(): Promise<CacheStats>;
     };
   }
 }

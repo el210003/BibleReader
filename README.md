@@ -25,7 +25,12 @@ the measurements that shaped it.
 - **Continuous chapter playback** with prefetch of the next verse while the current one plays,
   auto-advance, auto-scroll to the spoken verse, and stop-at-end.
 - Speed control re-synthesizes server-side (0.75×–2×).
-- In-memory audio cache; choices persist across launches.
+- **Disk cache with LRU eviction** for chapters (30-day TTL) and synthesized audio (500 MB
+  default cap, `BIBLEREADER_CACHE_MB` to change). Previously read chapters open offline.
+- **Offline fallback.** If Edge TTS is unreachable, the app speaks through an OS voice for
+  the same locale and keeps word-level karaoke via `speechSynthesis` `onboundary` events.
+  It says so in a banner rather than silently degrading.
+- Choices persist across launches.
 
 Verified end-to-end by `npm run smoke`, which drives the real UI (click-to-speak,
 selection-to-speak, and continuous playback):
@@ -43,13 +48,37 @@ selected span, and continuous playback auto-advanced to verse 2 of 36.
 
 ## What is deliberately not built yet
 
-- Disk cache (LRU) — audio and chapters vanish on restart — M2.
 - Bundled CJK font (currently uses the system serif) — M1.
 - Sleep timer — M3.
-- Web Speech fallback when offline — M4.
 - UI localization: on-screen labels are Chinese-only even when the scripture is English,
   Spanish, or French — M1.
 - Packaged installer — M5.
+
+## Cache and offline behaviour
+
+Chapters and synthesized audio are cached under the app data directory
+(`cache/chapters`, `cache/audio`) with an LRU index. The index is rebuilt from the filesystem
+if it is lost, so a truncated index cannot silently disable eviction.
+
+| setting | default |
+|---|---|
+| chapter TTL | 30 days |
+| audio cache cap | 500 MB (`BIBLEREADER_CACHE_MB`) |
+| clear | 清快取 button in the transport, or `cache:clear` IPC |
+
+Verified: cold run reports `source: network` and populates the cache; a second run reports
+`source: disk`, shows the 離線快取 note, and needs no network for the chapter.
+
+The fallback ladder is implemented, not aspirational:
+
+1. Edge neural voice.
+2. OS voice for the same locale (`speechSynthesis`), with karaoke driven by `onboundary`
+   `charIndex`/`charLength`. Verified producing correctly ordered spans on the same verse.
+3. A visible banner; if no OS voice exists for that locale, an explicit error rather than
+   silence.
+
+For QA, `BIBLEREADER_FORCE_FALLBACK=1` disables Edge synthesis so the fallback path can be
+exercised deliberately.
 
 ## First-run defaults
 

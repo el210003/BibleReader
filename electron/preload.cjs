@@ -5,4 +5,6 @@ contextBridge.exposeInMainWorld('api', {
   getBooks: (args) => ipcRenderer.invoke('scripture:books', args),
   getChapter: (args) => ipcRenderer.invoke('scripture:chapter', args),
   speak: (args) => ipcRenderer.invoke('tts:speak', args),
+  cacheStats: () => ipcRenderer.invoke('cache:stats'),
+  clearCache: () => ipcRenderer.invoke('cache:clear'),
 });

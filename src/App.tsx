@@ -1,22 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Book, BookList, Catalog, Span, SpeakResult, Verse } from './api';
+import type { Book, BookList, CacheStats, Catalog, Span, Verse } from './api';
 import './App.css';
 
 type PlaySpan = { verse: number; charStart: number; charEnd: number; tMs: number; durMs: number };
 
 type Playback = {
+  mode: 'edge' | 'system';
   spans: PlaySpan[];
-  url: string;
+  url?: string;
   durationMs: number;
   boundaryCount: number;
   unmapped: number;
-  cached: boolean;
+  source: 'memory' | 'disk' | 'network' | 'system';
   synthMs: number;
   label: string;
 };
 
-type SelectionBar = { x: number; y: number; text: string; start: number; end: number };
-
+type SelectionBar = { x: number; y: number; start: number; end: number };
 type Prefs = { translation: string; voice: string; book: number; chapter: number; region?: string };
 
 const PREFS_KEY = 'biblereader.prefs.v1';
@@ -62,8 +62,6 @@ function offsetWithin(vtext: Element, container: Node, offset: number): number {
   return r.toString().length;
 }
 
-// Map synthesized spans (relative to the spoken substring) back onto verse-relative
-// offsets. Spans that cross a verse boundary are clamped; bridging in main keeps that rare.
 function mapSpansToVerses(
   spans: Span[],
   selStart: number,
@@ -73,7 +71,6 @@ function mapSpansToVerses(
   const out: PlaySpan[] = [];
   for (const s of spans) {
     const gStart = selStart + s.charStart;
-    const gEnd = selStart + s.charEnd;
     let vi = -1;
     for (let i = 0; i < verseStarts.length; i++) {
       if (gStart >= verseStarts[i] && gStart < verseStarts[i] + verseLengths[i]) {
@@ -82,12 +79,14 @@ function mapSpansToVerses(
       }
     }
     if (vi < 0) continue;
+    // clamp to the verse so a span can never bleed into the next one
     const verseEnd = verseStarts[vi] + verseLengths[vi];
-    const charEnd = Math.min(gEnd, verseEnd) - verseStarts[vi];
+    const gEnd = Math.min(selStart + s.charEnd, verseEnd);
+    const charStart = gStart - verseStarts[vi];
     out.push({
       verse: vi + 1,
-      charStart: gStart - verseStarts[vi],
-      charEnd: Math.max(charEnd, gStart - verseStarts[vi] + 1),
+      charStart,
+      charEnd: Math.max(gEnd - verseStarts[vi], charStart + 1),
       tMs: s.tMs,
       durMs: s.durMs,
     });
@@ -103,8 +102,10 @@ export default function App() {
   const [book, setBook] = useState(43);
   const [chapter, setChapter] = useState(3);
   const [verses, setVerses] = useState<Verse[]>([]);
+  const [chapterMeta, setChapterMeta] = useState<{ fromCache: boolean; fetchedAt: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [playback, setPlayback] = useState<Playback | null>(null);
   const [activeSpan, setActiveSpan] = useState(-1);
   const [playing, setPlaying] = useState(false);
@@ -114,12 +115,21 @@ export default function App() {
   const [region, setRegion] = useState('default');
   const [selBar, setSelBar] = useState<SelectionBar | null>(null);
   const [queue, setQueue] = useState<{ list: number[]; pos: number } | null>(null);
+  const [cache, setCache] = useState<CacheStats | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const prefetchRef = useRef<Set<number>>(new Set());
+  const queueRef = useRef<{ list: number[]; pos: number } | null>(null);
+  const sysSpanCount = useRef(0);
+  const cancelledRef = useRef(false);
+  const handleEndedRef = useRef<(() => void) | null>(null);
 
-  // ---------- boot: catalog + first-run defaults ----------
+  useEffect(() => {
+    queueRef.current = queue;
+  }, [queue]);
+
+  // ---------- boot ----------
   useEffect(() => {
     window.api
       .getCatalog()
@@ -140,6 +150,7 @@ export default function App() {
         setHydrated(true);
       })
       .catch((e) => setError(String(e)));
+    window.api.cacheStats().then(setCache).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -147,7 +158,6 @@ export default function App() {
     savePrefs({ translation, voice, book, chapter, region });
   }, [hydrated, translation, voice, book, chapter, region]);
 
-  // ---------- books ----------
   useEffect(() => {
     if (!hydrated) return;
     window.api
@@ -161,7 +171,6 @@ export default function App() {
 
   const currentBook: Book | undefined = bookList?.books.find((b) => b.id === book);
 
-  // clamp chapter when the book changes
   useEffect(() => {
     if (!currentBook) return;
     if (chapter > currentBook.chapters) setChapter(1);
@@ -176,10 +185,12 @@ export default function App() {
     setQueue(null);
     setSelBar(null);
     try {
-      const rows = await window.api.getChapter({ translation, book, chapter });
-      setVerses(rows);
+      const res = await window.api.getChapter({ translation, book, chapter });
+      setVerses(res.verses);
+      setChapterMeta({ fromCache: res.fromCache, fetchedAt: res.fetchedAt });
     } catch (e) {
       setError(String(e));
+      setChapterMeta(null);
     } finally {
       setLoading(false);
     }
@@ -190,7 +201,6 @@ export default function App() {
     loadChapter();
   }, [loadChapter, hydrated]);
 
-  // ---------- chapter-level text index (for selection -> speech) ----------
   const chapterIndex = useMemo(() => {
     const starts: number[] = [];
     const lengths: number[] = [];
@@ -203,50 +213,6 @@ export default function App() {
     return { starts, lengths, fullText: verses.map((v) => v.text).join('') };
   }, [verses]);
 
-  // ---------- playback helpers ----------
-  const speakRange = useCallback(
-    async (startGlobal: number, endGlobal: number, label: string, opts?: { keepQueue?: boolean }) => {
-      const text = chapterIndex.fullText.slice(startGlobal, endGlobal);
-      if (!text.trim()) return;
-      const meta = catalog?.translations[translation];
-      const chosen = meta?.voices.find((v) => v.id === voice);
-      if (!chosen) return;
-
-      if (!opts?.keepQueue) setQueue(null);
-      setStatus('合成中…');
-      setSelBar(null);
-      const t0 = performance.now();
-      try {
-        const res: SpeakResult = await window.api.speak({
-          text,
-          voice: chosen.id,
-          locale: chosen.locale,
-          rate,
-        });
-        const synthMs = Math.round(performance.now() - t0);
-        const spans = mapSpansToVerses(res.spans, startGlobal, chapterIndex.starts, chapterIndex.lengths);
-        setPlayback((prev) => {
-          if (prev?.url) URL.revokeObjectURL(prev.url);
-          return {
-            spans,
-            url: base64ToBlobUrl(res.audioBase64),
-            durationMs: res.durationMs,
-            boundaryCount: res.boundaryCount,
-            unmapped: res.unmapped,
-            cached: res.cached,
-            synthMs,
-            label,
-          };
-        });
-        setStatus('');
-      } catch (e) {
-        setStatus('');
-        setError(String(e));
-      }
-    },
-    [chapterIndex, catalog, translation, voice, rate]
-  );
-
   const verseRange = useCallback(
     (verseNum: number) => {
       const i = verses.findIndex((v) => v.verse === verseNum);
@@ -256,6 +222,144 @@ export default function App() {
     [verses, chapterIndex]
   );
 
+  // ---------- system-voice fallback (offline / Edge failure) ----------
+  // getVoices() can be empty until 'voiceschanged' fires, so wait for it rather than
+  // concluding "no voice installed" on the first attempt.
+  const getSystemVoice = useCallback(async (locale: string) => {
+    const synth = window.speechSynthesis;
+    let voices = synth.getVoices();
+    if (!voices.length) {
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, 2000);
+        synth.addEventListener('voiceschanged', () => {
+          clearTimeout(timer);
+          resolve();
+        }, { once: true });
+      });
+      voices = synth.getVoices();
+    }
+    const exact = voices.find((v) => v.lang.toLowerCase() === locale.toLowerCase());
+    const prefix = voices.find((v) => v.lang.toLowerCase().startsWith(locale.split('-')[0]));
+    return exact ?? prefix ?? null;
+  }, []);
+
+  const speakSystem = useCallback(
+    async (text: string, locale: string, startGlobal: number, label: string) => {
+      const synth = window.speechSynthesis;
+      const v = await getSystemVoice(locale);
+      if (!v) {
+        setError(`Edge 連線失敗，且系統沒有 ${locale} 語音`);
+        setStatus('');
+        return;
+      }
+
+      cancelledRef.current = false;
+      sysSpanCount.current = 0;
+      synth.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.voice = v;
+      u.lang = v.lang;
+
+      setPlayback((prev) => {
+        if (prev?.url) URL.revokeObjectURL(prev.url);
+        return {
+          mode: 'system',
+          spans: [],
+          durationMs: 0,
+          boundaryCount: 0,
+          unmapped: 0,
+          source: 'system',
+          synthMs: 0,
+          label: `${label}（系統語音 ${v.lang}）`,
+        };
+      });
+      setActiveSpan(-1);
+      setStatus('');
+
+      u.onboundary = (ev) => {
+        const cs = ev.charIndex ?? 0;
+        const len = (ev as SpeechSynthesisEvent & { charLength?: number }).charLength || 1;
+        const mapped = mapSpansToVerses(
+          [{ charStart: cs, charEnd: cs + len, tMs: (ev.elapsedTime || 0) * 1000, durMs: 220 }],
+          startGlobal,
+          chapterIndex.starts,
+          chapterIndex.lengths
+        );
+        if (!mapped.length) return;
+        sysSpanCount.current += mapped.length;
+        setActiveSpan(sysSpanCount.current - 1);
+        setPlayback((p) => (p && p.mode === 'system' ? { ...p, spans: [...p.spans, ...mapped] } : p));
+      };
+      u.onstart = () => setPlaying(true);
+      u.onend = () => {
+        setPlaying(false);
+        if (!cancelledRef.current) handleEndedRef.current?.();
+      };
+      u.onerror = () => setPlaying(false);
+
+      synth.speak(u);
+      setNotice(`Edge 不可用，改用系統語音（${v.lang}）`);
+    },
+    [chapterIndex, getSystemVoice]
+  );
+
+  // ---------- Edge TTS ----------
+  const speakEdge = useCallback(
+    async (startGlobal: number, endGlobal: number, label: string, opts?: { keepQueue?: boolean }) => {
+      const text = chapterIndex.fullText.slice(startGlobal, endGlobal);
+      if (!text.trim()) return false;
+      const meta = catalog?.translations[translation];
+      const chosen = meta?.voices.find((v) => v.id === voice);
+      if (!chosen) return false;
+
+      if (!opts?.keepQueue) setQueue(null);
+      setStatus('合成中…');
+      const t0 = performance.now();
+      try {
+        const res = await window.api.speak({ text, voice: chosen.id, locale: chosen.locale, rate });
+        const synthMs = Math.round(performance.now() - t0);
+        const spans = mapSpansToVerses(res.spans, startGlobal, chapterIndex.starts, chapterIndex.lengths);
+        setPlayback((prev) => {
+          if (prev?.url) URL.revokeObjectURL(prev.url);
+          return {
+            mode: 'edge',
+            spans,
+            url: base64ToBlobUrl(res.audioBase64),
+            durationMs: res.durationMs,
+            boundaryCount: res.boundaryCount,
+            unmapped: res.unmapped,
+            source: res.source,
+            synthMs,
+            label,
+          };
+        });
+        setNotice(null);
+        setStatus('');
+        window.api.cacheStats().then(setCache).catch(() => {});
+        return true;
+      } catch {
+        setStatus('');
+        return false;
+      }
+    },
+    [chapterIndex, catalog, translation, voice, rate]
+  );
+
+  const speakRange = useCallback(
+    async (startGlobal: number, endGlobal: number, label: string, opts?: { keepQueue?: boolean }) => {
+      setSelBar(null);
+      const ok = await speakEdge(startGlobal, endGlobal, label, opts);
+      if (ok) return;
+      const meta = catalog?.translations[translation];
+      const chosen = meta?.voices.find((v) => v.id === voice);
+      if (!chosen) return;
+      if (!opts?.keepQueue) setQueue(null);
+      const text = chapterIndex.fullText.slice(startGlobal, endGlobal);
+      await speakSystem(text, chosen.locale, startGlobal, label);
+    },
+    [speakEdge, speakSystem, catalog, translation, voice, chapterIndex]
+  );
+
   const speakVerse = useCallback(
     (verseNum: number) => {
       const r = verseRange(verseNum);
@@ -263,7 +367,8 @@ export default function App() {
     },
     [verseRange, speakRange]
   );
-  // ---------- continuous chapter playback ----------
+
+  // ---------- queue ----------
   const startQueue = useCallback(
     (fromVerse: number) => {
       const list = verses.filter((v) => v.verse >= fromVerse).map((v) => v.verse);
@@ -274,7 +379,6 @@ export default function App() {
     [verses]
   );
 
-  // drive the queue: synthesize current, prefetch next
   useEffect(() => {
     if (!queue) return;
     const verseNum = queue.list[queue.pos];
@@ -283,7 +387,6 @@ export default function App() {
 
     speakRange(r.start, r.end, `第 ${verseNum} 節`, { keepQueue: true });
 
-    // prefetch the next verse into the main-process cache while this one plays
     const next = queue.list[queue.pos + 1];
     const meta = catalog?.translations[translation];
     const chosen = meta?.voices.find((v) => v.id === voice);
@@ -303,17 +406,31 @@ export default function App() {
     }
   }, [queue, verseRange, speakRange, chapterIndex, catalog, translation, voice, rate]);
 
+  const handleEnded = useCallback(() => {
+    const q = queueRef.current;
+    if (q && q.pos < q.list.length - 1) {
+      setQueue({ ...q, pos: q.pos + 1 });
+    } else {
+      setActiveSpan(-1);
+      setQueue(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    handleEndedRef.current = handleEnded;
+  }, [handleEnded]);
+
   // ---------- audio ----------
   useEffect(() => {
     const a = audioRef.current;
-    if (!a || !playback) return;
+    if (!a || !playback || playback.mode !== 'edge') return;
     setActiveSpan(-1);
     a.load();
     a.play().catch((e) => setError(String(e)));
   }, [playback]);
 
   useEffect(() => {
-    if (!playback || !audioRef.current) return;
+    if (!playback || playback.mode !== 'edge' || !audioRef.current) return;
     const tick = () => {
       const a = audioRef.current;
       if (!a) return;
@@ -333,26 +450,27 @@ export default function App() {
     };
   }, [playback]);
 
-  // auto-scroll to the verse being spoken
   useEffect(() => {
     if (activeSpan < 0 || !playback) return;
     const s = playback.spans[activeSpan];
     if (!s) return;
-    const el = document.querySelector(`.verse[data-verse="${s.verse}"]`);
-    el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    document.querySelector(`.verse[data-verse="${s.verse}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, [activeSpan, playback]);
 
-  const onEnded = useCallback(() => {
-    setPlaying(false);
-    if (queue && queue.pos < queue.list.length - 1) {
-      setQueue({ ...queue, pos: queue.pos + 1 });
-    } else {
-      setActiveSpan(-1);
-      setQueue(null);
+  const stopAll = useCallback(() => {
+    cancelledRef.current = true;
+    window.speechSynthesis.cancel();
+    const a = audioRef.current;
+    if (a) {
+      a.pause();
+      a.currentTime = 0;
     }
-  }, [queue]);
+    setPlaying(false);
+    setActiveSpan(-1);
+    setQueue(null);
+  }, []);
 
-  // ---------- selection -> speech ----------
+  // ---------- selection ----------
   const onMouseUp = useCallback(() => {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
@@ -366,39 +484,26 @@ export default function App() {
       setSelBar(null);
       return;
     }
-    const sv = Number(startEl.dataset.verse);
-    const ev = Number(endEl.dataset.verse);
-    const svIdx = verses.findIndex((v) => v.verse === sv);
-    const evIdx = verses.findIndex((v) => v.verse === ev);
+    const svIdx = verses.findIndex((v) => v.verse === Number(startEl.dataset.verse));
+    const evIdx = verses.findIndex((v) => v.verse === Number(endEl.dataset.verse));
     if (svIdx < 0 || evIdx < 0 || evIdx < svIdx) {
       setSelBar(null);
       return;
     }
-
     const startVtext = startEl.querySelector('.vtext');
     const endVtext = endEl.querySelector('.vtext');
     if (!startVtext || !endVtext) return;
 
-    const startOff = offsetWithin(startVtext, range.startContainer, range.startOffset);
-    const endOff = offsetWithin(endVtext, range.endContainer, range.endOffset);
-    const startGlobal = chapterIndex.starts[svIdx] + startOff;
-    const endGlobal = chapterIndex.starts[evIdx] + endOff;
+    const startGlobal = chapterIndex.starts[svIdx] + offsetWithin(startVtext, range.startContainer, range.startOffset);
+    const endGlobal = chapterIndex.starts[evIdx] + offsetWithin(endVtext, range.endContainer, range.endOffset);
     if (endGlobal <= startGlobal) {
       setSelBar(null);
       return;
     }
-
     const rect = range.getBoundingClientRect();
-    setSelBar({
-      x: rect.left + rect.width / 2,
-      y: rect.top,
-      text: chapterIndex.fullText.slice(startGlobal, endGlobal),
-      start: startGlobal,
-      end: endGlobal,
-    });
+    setSelBar({ x: rect.left + rect.width / 2, y: rect.top, start: startGlobal, end: endGlobal });
   }, [verses, chapterIndex]);
 
-  // ---------- render helpers ----------
   const segmentsFor = useCallback(
     (v: Verse) => {
       if (!playback) return null;
@@ -419,10 +524,10 @@ export default function App() {
   );
 
   const activeVerse = activeSpan >= 0 && playback ? playback.spans[activeSpan]?.verse : null;
+
   const bookSections = useMemo(() => {
     if (!bookList) return [];
-    const order: Array<'old' | 'new' | 'deutero'> = ['old', 'new', 'deutero'];
-    return order
+    return (['old', 'new', 'deutero'] as const)
       .map((s) => ({ key: s, label: bookList.sections[s], books: bookList.books.filter((b) => b.section === s) }))
       .filter((g) => g.books.length > 0);
   }, [bookList]);
@@ -492,8 +597,19 @@ export default function App() {
           <button onClick={() => setError(null)}>×</button>
         </div>
       )}
+      {notice && (
+        <div className="notice">
+          {notice}
+          <button onClick={() => setNotice(null)}>×</button>
+        </div>
+      )}
 
       <main className="reader" onMouseUp={onMouseUp}>
+        {chapterMeta?.fromCache && (
+          <p className="cached-note">
+            離線快取 · {new Date(chapterMeta.fetchedAt).toLocaleDateString()}
+          </p>
+        )}
         {verses.map((v) => {
           const segs = segmentsFor(v);
           return (
@@ -545,15 +661,24 @@ export default function App() {
       <footer className="transport">
         <audio
           ref={audioRef}
-          src={playback?.url}
+          src={playback?.mode === 'edge' ? playback.url : undefined}
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}
-          onEnded={onEnded}
+          onEnded={() => {
+            setPlaying(false);
+            handleEnded();
+          }}
         />
         <button
           className="primary"
           disabled={!playback}
           onClick={() => {
+            if (playback?.mode === 'system') {
+              if (playing) window.speechSynthesis.pause();
+              else window.speechSynthesis.resume();
+              setPlaying(!playing);
+              return;
+            }
             const a = audioRef.current;
             if (!a) return;
             if (a.paused) a.play().catch((e) => setError(String(e)));
@@ -562,18 +687,7 @@ export default function App() {
         >
           {playing ? '⏸ 暫停' : '▶ 播放'}
         </button>
-        <button
-          disabled={!playback}
-          onClick={() => {
-            const a = audioRef.current;
-            if (!a) return;
-            a.pause();
-            a.currentTime = 0;
-            setActiveSpan(-1);
-          }}
-        >
-          ⏹ 停止
-        </button>
+        <button disabled={!playback} onClick={stopAll}>⏹ 停止</button>
         <button disabled={!verses.length} onClick={() => startQueue(activeVerse ?? verses[0]?.verse ?? 1)}>
           ▶ 連續朗讀
         </button>
@@ -586,15 +700,31 @@ export default function App() {
             <option value="2">2×</option>
           </select>
         </label>
+        <button
+          onClick={async () => {
+            const s = await window.api.clearCache();
+            setCache(s);
+            setNotice('已清除快取');
+          }}
+        >
+          清快取
+        </button>
         <div className="meta">
           {status && <span className="pill">{status}</span>}
           {queue && <span className="pill" data-testid="queue">{queue.pos + 1}/{queue.list.length}</span>}
+          {cache && (
+            <span className="pill" data-testid="cache">
+              cache {Math.round(cache.totalBytes / 1048576)}MB
+            </span>
+          )}
           {playback && (
             <>
               <span className="pill">{playback.label}</span>
-              <span className="pill">{Math.round(playback.durationMs / 100) / 10}s</span>
+              <span className="pill">{playback.source}</span>
               <span className="pill">{playback.boundaryCount} boundaries</span>
-              <span className="pill">{playback.cached ? 'cached' : `${playback.synthMs}ms`}</span>
+              {playback.mode === 'edge' && (
+                <span className="pill">{Math.round(playback.durationMs / 100) / 10}s</span>
+              )}
               {playback.unmapped > 0 && <span className="pill warn">{playback.unmapped} unmapped</span>}
             </>
           )}

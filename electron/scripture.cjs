@@ -3,6 +3,7 @@
 // getBible fallback are M1 work.
 
 const books = require('./books.cjs');
+const cache = require('./cache.cjs');
 
 const UA = 'BibleReader/0.1 (+https://github.com/bible-reader)';
 
@@ -180,12 +181,17 @@ function normalizeText(raw) {
 
 async function getChapter({ translation, book, chapter }) {
   if (!TRANSLATIONS[translation]) throw new Error(`unknown translation ${translation}`);
+
+  // cache-first: a previously read chapter works offline
+  const cached = cache.getChapter(translation, book, chapter);
+  if (cached) return { verses: cached.verses, fromCache: true, fetchedAt: cached.fetchedAt };
+
   const res = await fetch(`https://bolls.life/get-text/${translation}/${book}/${chapter}/`, {
     headers: { 'User-Agent': UA },
   });
   if (!res.ok) throw new Error(`bolls.life ${res.status} ${res.statusText}`);
   const rows = await res.json();
-  return rows.map((r) => {
+  const verses = rows.map((r) => {
     const raw = stripHtml(r.text);
     const norm = normalizeText(raw);
     return {
@@ -197,6 +203,9 @@ async function getChapter({ translation, book, chapter }) {
       removedSpaces: norm.removedSpaces,
     };
   });
+
+  cache.putChapter(translation, book, chapter, verses);
+  return { verses, fromCache: false, fetchedAt: Date.now() };
 }
 
 module.exports = {

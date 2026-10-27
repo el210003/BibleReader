@@ -2,9 +2,7 @@ const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('node:path');
 const scripture = require('./scripture.cjs');
 const tts = require('./tts.cjs');
-
-// Simple in-memory synthesis cache for M0. Disk LRU cache is M2.
-const cache = new Map();
+const cache = require('./cache.cjs');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -79,11 +77,29 @@ function createWindow() {
                verses[15]?.click();
                await wait(2500);
                const a1 = document.querySelector('audio');
+               const pillTexts = () => [...document.querySelectorAll('.pill')].map(p => p.textContent);
+               // verify highlight spans actually point at the right characters
+               const av = document.querySelector('.verse.active');
+               const avText = av?.querySelector('.vtext')?.textContent ?? '';
+               const markTexts = av ? [...av.querySelectorAll('mark')].map(m => m.textContent) : [];
+               let mcCursor = 0, markCheck = true;
+               for (const t of markTexts) {
+                 const i = avText.indexOf(t, mcCursor);
+                 if (i < 0 || !t) { markCheck = false; break; }
+                 mcCursor = i + t.length;
+               }
                const clickTest = {
                  marks: document.querySelectorAll('.vtext mark').length,
                  activeMarks: document.querySelectorAll('.vtext mark.on').length,
                  playing: a1 ? !a1.paused : false,
                  currentTime: a1 ? Number(a1.currentTime.toFixed(2)) : null,
+                 source: pillTexts().find(t => ['memory','disk','network','system'].includes(t)) ?? null,
+                 notice: document.querySelector('.notice')?.textContent?.trim() ?? null,
+                 offlineNote: document.querySelector('.cached-note')?.textContent?.trim() ?? null,
+                 cachePill: document.querySelector('[data-testid="cache"]')?.textContent ?? null,
+                 cacheStats: await window.api.cacheStats(),
+                 markTexts,
+                 markCheck,
                };
 
                // 2) selection -> speak on an untouched verse
@@ -182,13 +198,14 @@ ipcMain.handle('scripture:chapter', async (_e, args) => {
 });
 
 ipcMain.handle('tts:speak', async (_e, { text, voice, locale, rate }) => {
-  const key = `${voice}|${rate || 'default'}|${text}`;
-  if (cache.has(key)) return { ...cache.get(key), cached: true };
+  return tts.speak({ text, voice, locale, rate });
+});
 
-  const result = await tts.speak({ text, voice, locale, rate });
-  cache.set(key, result);
-  if (cache.size > 200) cache.delete(cache.keys().next().value);
-  return { ...result, cached: false };
+ipcMain.handle('cache:stats', () => cache.stats());
+
+ipcMain.handle('cache:clear', () => {
+  cache.clearAll();
+  return cache.stats();
 });
 
 app.whenReady().then(() => {

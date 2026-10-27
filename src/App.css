@@ -260,3 +260,24 @@ button.primary {
   color: var(--accent);
   font-weight: 700;
 }
+
+.notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 20px 0;
+  padding: 10px 14px;
+  font-size: 13px;
+  border: 1px solid #d8cfa8;
+  border-radius: 6px;
+  background: #fdf8e4;
+  color: #6b5a1e;
+}
+
+.cached-note {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin: 0 0 12px 36px;
+  font-family: ui-monospace, 'Cascadia Mono', monospace;
+}

@@ -240,9 +240,9 @@ Estimates assume one developer, part-time, with the provider and TTS spikes done
 |---|---|---|---|
 | M0 | Spike & scaffold | **DONE** — see `SPIKE-RESULTS.md`. Repo scaffolded (Vite+React+TS+Electron), three spikes executed, one design assumption corrected | complete |
 | M1 | Reader core + i18n | **Core done**: full 66-book canon via provider data, localized book-name tables for all four locales, canon sectioning (WEB's 17 deuterocanonical books grouped), chapter pickers driven by real chapter counts. **Remaining**: bundled CJK font, UI-string localization, SQLite cache | partial |
-| M2 | TTS core | Voice catalogue, verse synthesis, audio cache, playback transport, speed control | 1.5 wk |
+| M2 | TTS core | **Core done**: voice catalogue, per-verse synthesis, playback transport, speed control, disk audio cache with LRU eviction (500 MB cap), cache-stats and clear-cache IPC. **Remaining**: sleep timer | partial |
 | M3 | Highlight-to-speak | **Core done**: selection → speak (single-verse and multi-verse selections, offsets computed post-normalization), floating action bar, karaoke across verse boundaries, auto-scroll, continuous chapter playback with prefetch. **Remaining**: sleep timer | partial |
-| M4 | Resilience | Fallback ladder, offline mode, provider rate limiting/backoff, cache eviction, error surfaces | 1 wk |
+| M4 | Resilience | **Mostly done**: OS-voice fallback with working karaoke (`onboundary`), offline chapter reads from cache, cache eviction, visible error/notice surfaces. **Remaining**: provider rate limiting/backoff hardening | partial |
 | M5 | Polish & ship | Settings, fonts/themes, keyboard shortcuts, accessibility pass, electron-builder NSIS installer, README | 1 wk |
 
 **Total: ~4–5 weeks** for the four-language scope, with M0 complete. The two external dependencies (provider text shape, Edge word boundaries) are now validated against live services rather than assumed.
