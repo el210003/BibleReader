@@ -14,7 +14,10 @@
     "spike:scripture": "node spikes/01-scripture.mjs",
     "spike:tts": "node spikes/02-tts.mjs",
     "spike:highlight": "node spikes/03-highlight-plan.mjs",
-    "smoke": "cross-env SMOKE=1 electron ."
+    "smoke": "cross-env SMOKE=1 electron .",
+    "doctor": "node electron/doctor.cjs",
+    "reset": "cross-env BIBLEREADER_RESET_PREFS=1 electron .",
+    "start:nogpu": "cross-env BIBLEREADER_DISABLE_GPU=1 electron ."
   },
   "dependencies": {
     "msedge-tts": "^2.1.1",

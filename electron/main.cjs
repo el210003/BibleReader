@@ -1,4 +1,11 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
+
+// Some Windows GPU/driver combinations paint an Electron window as a flat colour while the
+// DOM is perfectly fine. Opt-in escape hatch for that case (must run before app is ready).
+if (process.env.BIBLEREADER_DISABLE_GPU === '1') {
+  app.disableHardwareAcceleration();
+  console.log('[gpu] hardware acceleration disabled');
+}
 const path = require('node:path');
 const scripture = require('./scripture.cjs');
 const tts = require('./tts.cjs');
@@ -24,10 +31,81 @@ function createWindow() {
   });
 
   const devUrl = process.env.VITE_DEV_SERVER_URL;
+  const distIndex = path.join(__dirname, '..', 'dist', 'index.html');
+
   if (devUrl) {
     win.loadURL(devUrl);
+    // A dev-server that is not actually serving would leave a blank window.
+    win.webContents.on('did-fail-load', () => {
+      win.loadURL(
+        'data:text/html;charset=utf-8,' +
+          encodeURIComponent(
+            `<body style="font:14px/1.6 system-ui;padding:40px;background:#f7f4ee;color:#241f1a">
+               <h2>Cannot reach the dev server</h2>
+               <p>Tried <code>${devUrl}</code>. Start it with <code>npm run dev</code>,
+               or run <code>npm start</code> to use the built bundle.</p>
+             </body>`
+          )
+      );
+    });
+  } else if (require('node:fs').existsSync(distIndex)) {
+    win.loadFile(distIndex);
   } else {
-    win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
+    // Never show a blank window because a build step was skipped.
+    win.loadURL(
+      'data:text/html;charset=utf-8,' +
+        encodeURIComponent(
+          `<body style="font:14px/1.6 system-ui;padding:40px;background:#f7f4ee;color:#241f1a">
+             <h2>No build found</h2>
+             <p><code>dist/index.html</code> does not exist, so there is nothing to render.</p>
+             <p>Run <code>npm run build</code> (or <code>npm start</code>, which builds first),
+             or use <code>npm run dev</code>.</p>
+             <p style="color:#6b6157">Looked for: <code>${distIndex}</code></p>
+           </body>`
+        )
+    );
+  }
+
+  // Always-on diagnostics: a blank window should never be silent.
+  win.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    console.log(`[load] FAILED ${code} ${desc} ${url}`);
+  });
+  win.webContents.on('render-process-gone', (_e, details) => {
+    console.log('[renderer] process gone:', JSON.stringify(details));
+  });
+  win.webContents.on('console-message', (event, level, message) => {
+    const msg = typeof event === 'object' && event?.message ? event.message : message;
+    const lvl = typeof event === 'object' && event?.level !== undefined ? event.level : level;
+    console.log(`[renderer:${lvl}] ${msg}`);
+  });
+  win.webContents.on('preload-error', (_e, p, err) => {
+    console.log('[preload] ERROR', p, String(err));
+  });
+
+  // Screenshot mode: proves whether the window actually renders anything.
+  if (process.env.SHOT) {
+    win.webContents.on('did-finish-load', async () => {
+      await new Promise((r) => setTimeout(r, 3500));
+      try {
+        const probe = await win.webContents.executeJavaScript(
+          'JSON.stringify({app: !!document.querySelector(".app"), header: !!document.querySelector(".bar"), verses: document.querySelectorAll(".verse").length, selects: [...document.querySelectorAll("select")].map(s=>s.value), prefs: localStorage.getItem("biblereader.prefs.v1"), firstVerse: document.querySelector(".vtext")?.textContent?.slice(0,30), bookOptionsFirst: document.querySelectorAll("select")[1]?.options[0]?.text, bg: getComputedStyle(document.body).backgroundColor, rootHtmlLen: document.getElementById("root")?.innerHTML.length ?? -1})'
+        );
+        console.log('[probe]', probe);
+      } catch (e) {
+        console.log('[probe] failed', String(e));
+      }
+      try {
+        const img = await win.webContents.capturePage();
+        const fs = require('node:fs');
+        fs.mkdirSync(path.join(__dirname, '..', 'spikes', 'out'), { recursive: true });
+        const out = path.join(__dirname, '..', 'spikes', 'out', 'shot.png');
+        fs.writeFileSync(out, img.toPNG());
+        console.log('[shot] saved', out, JSON.stringify(img.getSize()));
+      } catch (e) {
+        console.log('[shot] failed', String(e));
+      }
+      app.quit();
+    });
   }
 
   // Smoke mode: load, report, quit. Used by CI / `npm run smoke`.
@@ -208,7 +286,13 @@ ipcMain.handle('cache:clear', () => {
   return cache.stats();
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Support escape hatch: stale preferences can make the app open in an unexpected
+  // translation/book. BIBLEREADER_RESET_PREFS=1 clears them before the first load.
+  if (process.env.BIBLEREADER_RESET_PREFS === '1') {
+    await require('electron').session.defaultSession.clearStorageData({ storages: ['localstorage'] });
+    console.log('[reset] cleared persisted preferences');
+  }
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

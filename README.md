@@ -98,6 +98,43 @@ behaviour only, not something that overrides the reader later.
 For QA, `BIBLEREADER_LOCALE_OVERRIDE=zh-TW` (or `zh-HK`) forces a branch without touching
 OS settings.
 
+## If the window is blank
+
+The app now tells you *why* instead of showing nothing:
+
+| situation | what you see |
+|---|---|
+| `dist/` missing | "No build found" with the exact path and the command to run |
+| dev server not reachable | "Cannot reach the dev server" with the URL it tried |
+| preload failed | "Preload script did not load" |
+| render-time exception | the stack trace and a Reload button |
+
+Run the environment check first:
+
+```bash
+npm run doctor
+```
+
+It verifies build output, `main`/preload wiring, Node/Electron versions, the cache
+directory, and reachability of bolls.life and the Edge voice list.
+
+If every check passes but the window is still a flat colour, the DOM is fine and the
+compositor is at fault — try:
+
+```bash
+npm run start:nogpu     # BIBLEREADER_DISABLE_GPU=1
+```
+
+Stale preferences from earlier builds can make the app open in an unexpected translation.
+Reset them:
+
+```bash
+npm run reset           # BIBLEREADER_RESET_PREFS=1
+```
+
+Diagnostics are always on: `npx electron .` prints `[load]`, `[preload]`, and `[renderer]`
+lines to the terminal.
+
 ## Run it
 
 ```bash
