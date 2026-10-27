@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Renderer CSP. 'unsafe-inline' is required by Vite's dev-time React refresh preamble;
+      tighten to script-src 'self' for packaged builds once the dev server is out of the loop.
+      media-src blob: is needed for the synthesized audio blob.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob: data:; connect-src 'self' ws://localhost:5173 http://localhost:5173"
+    />
+    <title>BibleReader · 聖經朗讀</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
