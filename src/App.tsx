@@ -157,6 +157,8 @@ export default function App() {
   const activeVerseRef = useRef<number | null>(null);
 
   const t = useMemo(() => strings(uiLang), [uiLang]);
+  const scriptureDir = catalog?.translations[translation]?.dir ?? 'ltr';
+  const scriptureLang = catalog?.translations[translation]?.lang ?? 'und';
   const verseLabel = useMemo(() => VERSE_LABEL[uiLang], [uiLang]);
 
   useEffect(() => {
@@ -641,13 +643,13 @@ export default function App() {
     return (['old', 'new', 'deutero'] as const)
       .map((s) => ({
         key: s,
-        label: bookList.sections[s],
+        label: s === 'old' ? t.oldTestament : s === 'new' ? t.newTestament : t.deuterocanonical,
         books: bookList.books.filter(
           (b) => b.section === s && (!q || b.name.toLowerCase().includes(q) || b.providerName.toLowerCase().includes(q))
         ),
       }))
       .filter((g) => g.books.length > 0);
-  }, [bookList, bookQuery]);
+  }, [bookList, bookQuery, t]);
 
   return (
     <div className="app">
@@ -658,7 +660,8 @@ export default function App() {
         </div>
 
         <button className="reference" onClick={() => setPanelOpen(true)} aria-label={t.navigator}>
-          <span>{currentBook?.name ?? '—'} {chapter}</span>
+          <bdi>{currentBook?.name ?? '—'}</bdi>
+          <bdi dir="ltr">{chapter}</bdi>
           <span className="chev" aria-hidden="true">▼</span>
         </button>
 
@@ -696,14 +699,14 @@ export default function App() {
       )}
 
       <main className="reader" onMouseUp={onMouseUp} aria-label="Scripture">
-        <div className="reading-column">
+        <div className="reading-column" dir={scriptureDir} lang={scriptureLang}>
           {chapterMeta?.fromCache && (
             <p className="cached-note">
               {t.offlineNote} · {new Date(chapterMeta.fetchedAt).toLocaleDateString()}
             </p>
           )}
           <div className="chapter-head">
-            <h1>{currentBook?.name ?? ''}</h1>
+            <h1><bdi>{currentBook?.name ?? ''}</bdi></h1>
             <span className="sub">
               {t.chapter} {chapter} · {catalog?.translations[translation]?.name ?? ''}
             </span>

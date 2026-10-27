@@ -81,4 +81,4 @@ function sectionLabels(lang) {
   return SECTION_LABELS[lang] ?? SECTION_LABELS['zh-Hant'];
 }
 
-module.exports = { localizedBookName, sectionOf, sectionLabels, TABLES };
+module.exports = { localizedBookName, sectionOf, TABLES };

@@ -88,3 +88,37 @@ try {
   fs.copyFileSync(sourcePath, fallback);
   console.log('[font] copied:', (fs.statSync(fallback).size / 1048576).toFixed(1), 'MB');
 }
+
+
+// --- Hebrew: small enough that a plain subset is plenty (no corpus needed) ---
+const HE_SOURCE = 'https://github.com/google/fonts/raw/main/ofl/notoserifhebrew/NotoSerifHebrew%5Bwdth,wght%5D.ttf';
+const heSourcePath = path.join(cacheDir, 'NotoSerifHebrew.ttf');
+if (!fs.existsSync(heSourcePath)) {
+  console.log('[font] downloading Hebrew source…');
+  const res = await fetch(HE_SOURCE);
+  if (!res.ok) throw new Error(`hebrew font download ${res.status}`);
+  fs.writeFileSync(heSourcePath, Buffer.from(await res.arrayBuffer()));
+}
+
+const heUnicodes = [];
+const addHeRange = (from, to) => { for (let cp = from; cp <= to; cp++) heUnicodes.push(cp); };
+addHeRange(0x20, 0x7e);
+addHeRange(0x0590, 0x05ff); // Hebrew block incl. niqqud and te'amim
+addHeRange(0x2000, 0x206f); // punctuation
+addHeRange(0xfb00, 0xfb4f); // presentation forms
+
+const heUnicodesFile = path.join(cacheDir, 'unicodes-hebrew.txt');
+fs.writeFileSync(heUnicodesFile, heUnicodes.map((c) => c.toString(16)).join(','));
+
+const heOut = path.join(outDir, 'NotoSerifHebrew-subset.woff2');
+try {
+  execFileSync(
+    'pyftsubset',
+    [heSourcePath, `--unicodes-file=${heUnicodesFile}`, '--flavor=woff2', `--output-file=${heOut}`,
+     '--layout-features=*', '--no-hinting', '--desubroutinize', '--name-IDs=*'],
+    { stdio: ['ignore', 'inherit', 'inherit'] }
+  );
+  console.log('[font] hebrew subset written:', (fs.statSync(heOut).size / 1024).toFixed(0), 'KB');
+} catch (e) {
+  console.warn('[font] hebrew subset failed:', String(e).slice(0, 120));
+}

@@ -22,6 +22,9 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      // keep rendering when the window is occluded, otherwise capturePage can return a
+      // stale frame and the screenshot tooling silently lies about what the app looks like
+      backgroundThrottling: false,
     },
   });
 
@@ -82,7 +85,8 @@ function createWindow() {
 
   // Screenshot mode: proves whether the window actually renders anything.
   if (process.env.SHOT) {
-    win.webContents.on('did-finish-load', async () => {
+    // `once`, because the Hebrew shot reloads the page and must not re-enter this handler
+    win.webContents.once('did-finish-load', async () => {
       await new Promise((r) => setTimeout(r, 3500));
       try {
         const probe = await win.webContents.executeJavaScript(
@@ -112,6 +116,38 @@ function createWindow() {
         );
         await new Promise((r) => setTimeout(r, 900));
         await shoot('shot-dark.png');
+        // Hebrew RTL proof shot. capturePage on the live window keeps returning a stale
+        // frame after a text-only change, so boot a second offscreen window with the Hebrew
+        // prefs the app already persisted.
+        await win.webContents.executeJavaScript(
+          "(() => { const s = document.querySelector('[data-testid=\"translation\"]'); const d = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value'); d.set.call(s,'WLC'); s.dispatchEvent(new Event('change',{bubbles:true})); })()"
+        );
+        await new Promise((r) => setTimeout(r, 1500));
+
+        const heWin = new BrowserWindow({
+          show: false,
+          width: 1180,
+          height: 900,
+          webPreferences: {
+            offscreen: true,
+            preload: path.join(__dirname, 'preload.cjs'),
+            contextIsolation: true,
+            nodeIntegration: false,
+            sandbox: false,
+            backgroundThrottling: false,
+          },
+        });
+        await heWin.loadFile(distIndex);
+        await new Promise((r) => setTimeout(r, 4500));
+        const heState = await heWin.webContents.executeJavaScript(
+          "JSON.stringify({translation: document.querySelector('[data-testid=\"translation\"]')?.value, dir: document.querySelector('.reading-column')?.getAttribute('dir'), heading: document.querySelector('.chapter-head h1')?.textContent, verses: document.querySelectorAll('.verse').length})"
+        );
+        console.log('[shot] hebrew state:', heState);
+        const heImg = await heWin.webContents.capturePage();
+        const heOut = path.join(__dirname, '..', 'spikes', 'out', 'shot-hebrew.png');
+        fs.writeFileSync(heOut, heImg.toPNG());
+        console.log('[shot] saved shot-hebrew.png', JSON.stringify(heImg.getSize()));
+        heWin.destroy();
       } catch (e) {
         console.log('[shot] failed', String(e));
       }
@@ -276,6 +312,43 @@ function createWindow() {
                await wait(400);
                panelTest.closedAgain = !document.querySelector('.panel')?.classList.contains('open');
 
+               // 7) Hebrew: RTL scripture, Hebrew canon, Hebrew voice + span mapping
+               setSelect(document.querySelector('[data-testid="translation"]'), 'WLC');
+               await wait(3200);
+               const col = document.querySelector('.reading-column');
+               const heVerseEl = document.querySelector('.verse[data-verse="1"]');
+               heVerseEl?.click();
+               await wait(2800);
+               const heAv = document.querySelector('.verse.active');
+               const heText = heAv?.querySelector('.vtext')?.textContent ?? '';
+               const heMarks = heAv ? [...heAv.querySelectorAll('mark')].map(m => m.textContent) : [];
+               let heCursor = 0, heMarkCheck = heMarks.length > 0;
+               for (const t of heMarks) {
+                 const i = heText.indexOf(t, heCursor);
+                 if (i < 0 || !t) { heMarkCheck = false; break; }
+                 heCursor = i + t.length;
+               }
+               const hebrewTest = {
+                 dir: col?.getAttribute('dir') ?? null,
+                 lang: col?.getAttribute('lang') ?? null,
+                 verses: document.querySelectorAll('.verse').length,
+                 bookItems: document.querySelectorAll('.book-item').length,
+                 heading: document.querySelector('.chapter-head h1')?.textContent ?? null,
+                 voice: document.querySelector('[data-testid="voice"]')?.value ?? null,
+                 marks: heMarks.length,
+                 markCheck: heMarkCheck,
+                 source: pillTexts().find(t => ['memory','disk','network','system'].includes(t)) ?? null,
+                 // RTL geometry: the verse number must sit against the RIGHT edge
+                 gutterMirrored: (() => {
+                   const v = document.querySelector('.verse');
+                   const n = v?.querySelector('.vnum');
+                   if (!v || !n) return null;
+                   const vr = v.getBoundingClientRect();
+                   const nr = n.getBoundingClientRect();
+                   return (vr.right - nr.right) < 60;
+                 })(),
+               };
+
                return JSON.stringify({
                  ...base,
                  initial,
@@ -286,6 +359,7 @@ function createWindow() {
                  i18nTest,
                  keyboardTest,
                  panelTest,
+                 hebrewTest,
                  prefs: localStorage.getItem('biblereader.prefs.v1'),
                });
                } catch (e) { return JSON.stringify({ error: String((e && (e.stack || e.message)) || e) }); }

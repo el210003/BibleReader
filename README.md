@@ -1,7 +1,7 @@
 # BibleReader · 聖經朗讀
 
 A Windows desktop Bible reader that speaks what you highlight, in Traditional Chinese,
-English, Spanish, and French.
+English, Spanish, French, and Hebrew scripture (right-to-left).
 
 **Status: M0–M5 implemented** — full canon, highlight-to-speak, continuous playback, disk
 cache with offline reads, OS-voice fallback, bundled CJK font, four-locale UI, keyboard
@@ -23,6 +23,11 @@ deviations) and `SPIKE-RESULTS.md` for the measurements that shaped it.
 - Click any verse → speak that verse. Voices cover Mandarin (`zh-TW`), Cantonese (`zh-HK`),
   English, Spanish (`es-ES`/`es-MX`) and French (`fr-FR`/`fr-CA`), with phrase-level karaoke
   driven by real Edge word-boundary timings.
+- **Hebrew scripture (RTL).** `WLC` (Westminster Leningrad Codex, OT with niqqud and
+  te'amim) and `DHNT` (Delitzsch Hebrew New Testament), with `he-IL` voices. The reading
+  surface flips to `dir="rtl"` with a mirrored verse gutter; highlight mapping works
+  unchanged on Hebrew, including vowel points. The interface stays in whichever of the four
+  UI languages you chose — Hebrew is scripture, not a UI locale.
 - **Continuous chapter playback** with prefetch of the next verse while the current one plays,
   auto-advance, auto-scroll to the spoken verse, and stop-at-end.
 - Speed control re-synthesizes server-side (0.75×–2×).
@@ -210,7 +215,7 @@ electron/cache.cjs     filesystem chapter/audio cache with LRU index + eviction
 electron/doctor.cjs    `npm run doctor` environment checks
 src/i18n.ts            UI strings for 繁體中文 / English / Español / Français
 src/App.css            design tokens, light/dark palettes, reading surface
-src/assets/fonts/      subset Noto Serif TC woff2 (generated, 1.78 MB)
+src/assets/fonts/      subset Noto Serif TC (1.78 MB) + Noto Serif Hebrew (65 KB), generated
 scripts/build-font.mjs subsets the CJK font to the glyphs the CUV corpus uses
 scripts/make-icon.cjs  renders build/icon.png
 build/icon.png         installer/app icon
@@ -249,8 +254,8 @@ MIT — see [LICENSE](LICENSE).
 
 ### Third-party notices
 
-- **Bundled font:** Noto Serif TC, subset to the glyphs the Chinese scripture uses, under the
-  SIL Open Font License 1.1.
+- **Bundled fonts:** Noto Serif TC (subset to the Chinese scripture glyphs) and Noto Serif
+  Hebrew (subset to the Hebrew block), both under the SIL Open Font License 1.1.
 - **Scripture text:** fetched from bolls.life. The shipped defaults are public-domain editions
   (CUV 1919, WEB, RV1960, FRLSG). Licensed translations (NIV, ESV, NVI, NBS, 思高) are opt-in
   selections and remain under their publishers' terms — the MIT license covers this app's code,

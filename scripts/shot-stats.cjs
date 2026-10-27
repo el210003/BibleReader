@@ -1,7 +1,7 @@
 const { app, nativeImage } = require('electron');
 const path = require('node:path');
 app.whenReady().then(() => {
-  for (const f of ['shot-light.png', 'shot-dark.png']) {
+  for (const f of ['shot-light.png', 'shot-dark.png', 'shot-hebrew.png']) {
     const img = nativeImage.createFromPath(path.join(__dirname, '..', 'spikes', 'out', f));
     if (img.isEmpty()) { console.log(f, 'MISSING'); continue; }
     const { width, height } = img.getSize();

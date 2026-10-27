@@ -1,7 +1,7 @@
 {
   "name": "biblereader",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Multilingual Bible reader with highlight-to-speak TTS",
   "type": "module",
   "main": "electron/main.cjs",

@@ -45,6 +45,9 @@ type Strings = {
   appearance: string;
   themeLight: string;
   themeDark: string;
+  oldTestament: string;
+  newTestament: string;
+  deuterocanonical: string;
 };
 
 const STRINGS: Record<UiLang, Strings> = {
@@ -83,6 +86,9 @@ const STRINGS: Record<UiLang, Strings> = {
     appearance: '外觀',
     themeLight: '淺色',
     themeDark: '深色',
+    oldTestament: '舊約',
+    newTestament: '新約',
+    deuterocanonical: '次經 / 附篇',
   },
   en: {
     translation: 'Translation',
@@ -119,6 +125,9 @@ const STRINGS: Record<UiLang, Strings> = {
     appearance: 'Appearance',
     themeLight: 'Light',
     themeDark: 'Dark',
+    oldTestament: 'Old Testament',
+    newTestament: 'New Testament',
+    deuterocanonical: 'Deuterocanonical',
   },
   es: {
     translation: 'Traducción',
@@ -155,6 +164,9 @@ const STRINGS: Record<UiLang, Strings> = {
     appearance: 'Apariencia',
     themeLight: 'Claro',
     themeDark: 'Oscuro',
+    oldTestament: 'Antiguo Testamento',
+    newTestament: 'Nuevo Testamento',
+    deuterocanonical: 'Deuterocanónicos',
   },
   fr: {
     translation: 'Traduction',
@@ -191,6 +203,9 @@ const STRINGS: Record<UiLang, Strings> = {
     appearance: 'Apparence',
     themeLight: 'Clair',
     themeDark: 'Sombre',
+    oldTestament: 'Ancien Testament',
+    newTestament: 'Nouveau Testament',
+    deuterocanonical: 'Deutérocano­niques',
   },
 };
 

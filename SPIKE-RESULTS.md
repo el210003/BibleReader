@@ -205,6 +205,25 @@ Differences worth knowing:
 
 Cantonese is therefore wired in as a **voice variant**, not a translation. `zh-TW` remains the default.
 
+## Spike 11 — Hebrew (RTL)
+
+| check | result |
+|---|---|
+| Hebrew editions on bolls.life | `WLC`, `WLCa`, `WLCC`, `HAC` (39 books, OT only, all `dir=rtl`), `DHNT` (27 books, NT, ids 40–66) |
+| Genesis 1:1 (WLC) | 65 chars, 59 Hebrew codepoints, 31 niqqud/te'amim, no HTML |
+| Edge voices | `he-IL-AvriNeural` (M), `he-IL-HilaNeural` (F) |
+| synthesis | 3,984 ms audio for Gen 1:1 |
+| boundary mapping | **7/7 mapped, 0 unmapped, 90.8% char coverage** — the existing mapping code works unchanged, including vowel points |
+| font | Noto Serif Hebrew subset → 65 KB woff2 |
+
+RTL was the only real work: `dir="rtl"` on the reading surface, mirrored verse gutter, and
+bidi isolation for numbers. Verified in-app (`dir=rtl`, Hebrew heading, `gutterMirrored:true`,
+20 marks mapped with `markCheck:true`).
+
+Note: `capturePage` returned a stale frame after text-only changes in an occluded window, so
+the Hebrew screenshot is taken from a second offscreen window. Worth remembering for any
+future visual regression testing.
+
 ## What is now de-risked
 
 - Edge TTS works today with no key and no token failures.

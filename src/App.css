@@ -3,9 +3,9 @@
 
 /* ---------------- tokens ---------------- */
 :root {
-  --font-ui: 'Inter', -apple-system, 'Segoe UI', 'Microsoft JhengHei', sans-serif;
-  --font-scripture: 'BibleReader TC', 'Iowan Old Style', 'Palatino Linotype', 'Songti SC',
-    'Noto Serif TC', 'PMingLiU', Georgia, serif;
+  --font-ui: 'Inter', -apple-system, 'Segoe UI', 'Microsoft JhengHei', 'BibleReader Hebrew', sans-serif;
+  --font-scripture: 'BibleReader TC', 'BibleReader Hebrew', 'Iowan Old Style', 'Palatino Linotype',
+    'Songti SC', 'Noto Serif TC', 'PMingLiU', Georgia, serif;
 
   --radius-s: 6px;
   --radius-m: 10px;
@@ -719,4 +719,37 @@ input[type='text'] {
     transition-duration: 1ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ---------------- right-to-left scripture ---------------- */
+.reading-column[dir='rtl'] .verse {
+  padding: 0.35em 3em 0.35em 0;
+}
+
+.reading-column[dir='rtl'] .vnum {
+  left: auto;
+  right: 1em;
+  text-align: left;
+}
+
+.reading-column[dir='rtl'] .verse::before {
+  left: auto;
+  right: 0.2em;
+  transform: translateX(3px);
+}
+
+.reading-column[dir='rtl'] .verse:hover::before,
+.reading-column[dir='rtl'] .verse.active::before {
+  transform: translateX(0);
+}
+
+.reading-column[dir='rtl'] .vtext {
+  text-align: right;
+}
+
+/* numbers and references must not reorder inside an RTL paragraph */
+.vnum,
+.reference bdi,
+.chapter-head bdi {
+  unicode-bidi: isolate;
 }

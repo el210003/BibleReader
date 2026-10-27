@@ -31,7 +31,7 @@ async function getBooks(translation) {
       section,
     };
   });
-  const result = { books: out, sections: books.sectionLabels(meta.lang) };
+  const result = { books: out };
   booksCache.set(translation, result);
   return result;
 }
@@ -46,6 +46,11 @@ const ZH_HANT_VOICES = [
   { id: 'zh-HK-HiuGaaiNeural', locale: 'zh-HK', label: '粵語 · 女聲 HiuGaai' },
   { id: 'zh-HK-HiuMaanNeural', locale: 'zh-HK', label: '粵語 · 女聲 HiuMaan' },
   { id: 'zh-HK-WanLungNeural', locale: 'zh-HK', label: '粵語 · 男聲 WanLung' },
+];
+
+const HE_VOICES = [
+  { id: 'he-IL-AvriNeural', locale: 'he-IL', label: 'עברית · Avri (M)' },
+  { id: 'he-IL-HilaNeural', locale: 'he-IL', label: 'עברית · Hila (F)' },
 ];
 
 const TRANSLATIONS = {
@@ -81,6 +86,20 @@ const TRANSLATIONS = {
       { id: 'es-MX-JorgeNeural', locale: 'es-MX', label: 'Español MX · Jorge' },
     ],
     defaultVoice: 'es-ES-ElviraNeural',
+  },
+  WLC: {
+    name: 'Westminster Leningrad Codex (Hebrew OT)',
+    lang: 'he',
+    dir: 'rtl',
+    voices: HE_VOICES,
+    defaultVoice: 'he-IL-AvriNeural',
+  },
+  DHNT: {
+    name: 'הברית החדשה (Delitzsch)',
+    lang: 'he',
+    dir: 'rtl',
+    voices: HE_VOICES,
+    defaultVoice: 'he-IL-AvriNeural',
   },
   FRLSG: {
     name: 'Segond 1910',

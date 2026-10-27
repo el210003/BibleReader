@@ -3,7 +3,7 @@ export type VoiceOption = { id: string; locale: string; label: string };
 export type Catalog = {
   translations: Record<
     string,
-    { name: string; lang: string; voices: VoiceOption[]; defaultVoice: string }
+    { name: string; lang: string; dir?: string; voices: VoiceOption[]; defaultVoice: string }
   >;
   systemLocale: string;
   preferredLanguages: string[];
@@ -20,7 +20,7 @@ export type Book = {
   section: 'old' | 'new' | 'deutero';
 };
 
-export type BookList = { books: Book[]; sections: Record<string, string> };
+export type BookList = { books: Book[] };
 
 export type Verse = {
   verse: number;
