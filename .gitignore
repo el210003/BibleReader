@@ -27,6 +27,7 @@ dist-ssr
 spikes/out/
 
 # test cache dirs
+.cache/
 .cache-test/
 .cache-fb/
 .cache-dbg/

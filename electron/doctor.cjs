@@ -25,13 +25,15 @@ async function main() {
 
   // 2. electron entry + preload wiring
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-  pkg.main ? ok(`package.json main = ${pkg.main}`) : bad('package.json has no "main"');
+  if (pkg.main) ok(`package.json main = ${pkg.main}`);
+  else bad('package.json has no "main"');
   const preload = path.join(root, 'electron', 'preload.cjs');
-  fs.existsSync(preload) ? ok('preload.cjs present') : bad('preload.cjs missing');
+  if (fs.existsSync(preload)) ok('preload.cjs present');
+  else bad('preload.cjs missing');
+
   const mainSrc = fs.readFileSync(path.join(root, 'electron', 'main.cjs'), 'utf8');
-  mainSrc.includes("preload: path.join(__dirname, 'preload.cjs')")
-    ? ok('main.cjs wires the preload script')
-    : bad('main.cjs does not wire preload.cjs');
+  if (mainSrc.includes("preload: path.join(__dirname, 'preload.cjs')")) ok('main.cjs wires the preload script');
+  else bad('main.cjs does not wire preload.cjs');
 
   // 3. native deps that need an ABI match
   ok(`node ${process.versions.node}, electron module ${require('electron/package.json').version}`);
@@ -50,7 +52,8 @@ async function main() {
     const res = await fetch('https://bolls.life/get-text/CUV/43/3/', {
       headers: { 'User-Agent': 'BibleReader/0.1 (doctor)' },
     });
-    res.ok ? ok(`bolls.life reachable (${res.status})`) : bad(`bolls.life returned ${res.status}`);
+    if (res.ok) ok(`bolls.life reachable (${res.status})`);
+    else bad(`bolls.life returned ${res.status}`);
   } catch (e) {
     warn(`bolls.life unreachable — cached chapters still work (${String(e).slice(0, 80)})`);
   }

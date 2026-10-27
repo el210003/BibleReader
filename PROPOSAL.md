@@ -3,7 +3,7 @@
 **A multilingual Bible reader with highlight-to-speak TTS**
 Target: Windows desktop · Text: online-first with local cache · TTS: Edge neural voices (free)
 
-Status: proposal / pre-implementation · Author: pi · Date: 2026
+Status: proposal · M0–M4 implemented and verified · M5 (polish/packaging) remaining · Author: pi · Date: 2026
 
 **M0 spikes are complete.** See `SPIKE-RESULTS.md`. Both external assumptions hold; three design assumptions were corrected as a result (most importantly: Chinese highlighting is phrase-level, not character-level, which makes the feature simpler than planned).
 
@@ -122,7 +122,7 @@ Public-domain defaults are chosen deliberately: the app ships legally clean out 
 | Shell | **Electron 3x (Windows)** | `msedge-tts` is a Node library and needs a Node runtime + WebSocket egress. Electron gives us that with zero plumbing. Fastest, most reliable path. |
 | UI | React + TypeScript + Vite | Standard, well-supported, fast iteration. |
 | State | Zustand + persisted settings | Small, no boilerplate. |
-| Storage | SQLite (`better-sqlite3`) for text; filesystem for audio | Text cache is relational (translation/book/chapter/verse); audio is blobs on disk. |
+| Storage | **Filesystem cache** (`cache.cjs`): JSON for chapters, blobs for audio, JSON LRU index | **As built.** SQLite (`better-sqlite3`) was dropped: it is a native module needing a rebuild per Electron/Node ABI, and the workload (chapter-shaped reads, blob audio) does not need SQL. The LRU index is rebuilt from the filesystem if lost. |
 | Text provider | bolls.life (primary), getBible.net v2 (secondary/fallback) | No keys; carries all four target languages (CUV/CUNP, WEB/KJV/ASV, RV1960/BTX3, FRLSG/FRDBY) plus bulk download. |
 | TTS | `msedge-tts` (Edge Read Aloud) with `MetadataOptions: WordBoundary` | Free, no key, huge locale coverage, returns word timings. |
 | Packaging | electron-builder → NSIS installer | Standard Windows distribution. |
@@ -139,7 +139,7 @@ Public-domain defaults are chosen deliberately: the app ships legally clean out 
           ▼                                                           ▼
 ┌────────────────────────── Main process (Node) ───────────────────────────────────────────────┐
 │  ScriptureService        TTSService              PlaybackService        CacheService         │
-│  ├ provider adapters     ├ voice catalogue       ├ queue/state machine  ├ SQLite (text)      │
+│  ├ provider adapters     ├ voice catalogue       ├ queue/state machine  ├ JSON cache (text)  │
 │  │  bolls / getbible     ├ synthesis + chunking  ├ seek/pause           ├ audio blobs        │
 │  ├ HTML→plain sanitize   ├ word-boundary map     └ timers               └ LRU eviction       │
 │  ├ rate limit + backoff  ├ audio cache lookup                                                │
@@ -179,18 +179,17 @@ interface ScriptureProvider {
 
 **Sanitization:** verse `text` is HTML. Parse → whitelist (`b`, `i`, `em`, `strong`, `br`, `span`) → strip the rest → **normalize** (collapse inter-character spacing for `CUV`, normalize whitespace, attach punctuation) → keep a plain-text projection for TTS. The normalized string is the single source of truth for both rendering and highlight offsets; the raw provider string is kept only for debugging. Never inject raw provider HTML into the DOM.
 
-**Cache schema** (SQLite, per-user app data dir):
+**Cache layout** (as built — per-user app data dir):
 
-```sql
-translations(short_name PK, full_name, language, dir, fetched_at)
-books(translation, bookid, name, chapters, PK(translation, bookid))
-chapters(translation, bookid, chapter, json, source, fetched_at, PK(translation,bookid,chapter))
-verses(translation, bookid, chapter, verse, plain_text, html, PK(translation,bookid,chapter,verse))
-audio_cache(key PK, translation, bookid, chapter, verse, voice, rate, pitch, path, bytes, duration_ms, created_at, last_played_at)
-settings(key PK, value)
+```
+cache/
+  chapters/<TRANSLATION>-<book>-<chapter>.json   { verses, fetchedAt }
+  audio/<sha256(voice|rate|text)>.mp3            synthesized audio
+  audio/<sha256(...)>.json                       { spans, durationMs, voice, rate, ... }
+  index.json                                     { entries{key -> bytes,lastUsed}, totalBytes }
 ```
 
-Cache policy: chapter TTL 30 days with a manual "refresh"; audio LRU capped at a user-configurable size (default 500 MB) with eviction on app start and after playback.
+Cache policy: chapter TTL 30 days; audio LRU capped at a user-configurable size (default 500 MB, `BIBLEREADER_CACHE_MB`) with eviction on write. The index is rebuilt from the filesystem when it is missing or empty, so a truncated index cannot silently disable eviction. `cache:stats` / `cache:clear` IPC back the 清快取 control.
 
 ### 4.4 TTS layer — the hard part
 
@@ -239,13 +238,13 @@ Estimates assume one developer, part-time, with the provider and TTS spikes done
 | # | Milestone | Deliverable | Est. |
 |---|---|---|---|
 | M0 | Spike & scaffold | **DONE** — see `SPIKE-RESULTS.md`. Repo scaffolded (Vite+React+TS+Electron), three spikes executed, one design assumption corrected | complete |
-| M1 | Reader core + i18n | **Core done**: full 66-book canon via provider data, localized book-name tables for all four locales, canon sectioning (WEB's 17 deuterocanonical books grouped), chapter pickers driven by real chapter counts. **Remaining**: bundled CJK font, UI-string localization, SQLite cache | partial |
+| M1 | Reader core + i18n | **Core done**: full 66-book canon via provider data, localized book-name tables for all four locales, canon sectioning (WEB's 17 deuterocanonical books grouped), chapter pickers driven by real chapter counts. **Remaining**: bundled CJK font, UI-string localization | partial |
 | M2 | TTS core | **Core done**: voice catalogue, per-verse synthesis, playback transport, speed control, disk audio cache with LRU eviction (500 MB cap), cache-stats and clear-cache IPC. **Remaining**: sleep timer | partial |
 | M3 | Highlight-to-speak | **Core done**: selection → speak (single-verse and multi-verse selections, offsets computed post-normalization), floating action bar, karaoke across verse boundaries, auto-scroll, continuous chapter playback with prefetch. **Remaining**: sleep timer | partial |
 | M4 | Resilience | **Mostly done**: OS-voice fallback with working karaoke (`onboundary`), offline chapter reads from cache, cache eviction, visible error/notice surfaces. **Remaining**: provider rate limiting/backoff hardening | partial |
-| M5 | Polish & ship | Settings, fonts/themes, keyboard shortcuts, accessibility pass, electron-builder NSIS installer, README | 1 wk |
+| M5 | Polish & ship | **Not started**: settings, fonts/themes, keyboard shortcuts, accessibility pass, electron-builder NSIS installer. README and diagnostics (`doctor`, `reset`, `dev:free`) already exist | remaining |
 
-**Total: ~4–5 weeks** for the four-language scope, with M0 complete. The two external dependencies (provider text shape, Edge word boundaries) are now validated against live services rather than assumed.
+**Status: M0–M4 core complete; M5 remains.** The two external dependencies (provider text shape, Edge word boundaries) are validated against live services rather than assumed, and the risky parts of the plan (highlight mapping, stitching, cache, fallback) are implemented and measured.
 
 ---
 
@@ -346,3 +345,20 @@ Proceed with M1 (reader core + i18n). Default configuration: UI in 繁體中文,
 M0 is complete and the two external dependencies are validated against live services (`SPIKE-RESULTS.md`). The one assumption that was wrong made the plan cheaper: Chinese highlighting is phrase-level, so a single highlight path serves all four languages.
 
 Before M2, close the remaining unknowns: sustained multi-hour stability of the `Sec-MS-GEC` token path, and `es-MX`/`fr-CA` audio quality. Concurrency and the offline fallback were measured after this proposal was first drafted and are now closed (`SPIKE-RESULTS.md` §07–08): 8 parallel requests complete with no throttling, and OS voices exist for all four locales with working `onboundary` events, so the fallback keeps karaoke alive.
+
+---
+
+## 12. As-built deviations from this plan
+
+Recorded so the document does not describe a system that no longer exists.
+
+| Planned | Built | Why |
+|---|---|---|
+| SQLite (`better-sqlite3`) for cached text | Filesystem JSON + blob cache with an LRU index | Native module needs a rebuild per Electron/Node ABI; the access pattern is chapter-shaped, not relational |
+| TypeScript main/preload via a bundler | Plain CommonJS `electron/*.cjs`; renderer stays TS | Avoids a second build pipeline; main is ~300 lines and directly debuggable |
+| Chinese highlight via a per-character path | One phrase-level path for all four languages | Edge emits phrase boundaries for Chinese; per-character measurement was unnecessary (see `SPIKE-RESULTS.md` §03) |
+| Cantonese deferred to v2 | `zh-HK` voices shipped, and the default for HK/Macau locales | Hong Kong readers hear 和合本 in Cantonese; no written-Cantonese edition exists, so it is a voice variant |
+| Fallback degrades to sentence-level highlight | Fallback keeps word-level karaoke via `onboundary` | Verified working on SAPI voices |
+| No diagnostics tooling planned | `npm run doctor`, `npm run reset`, `npm run dev:free`, `npm run start:nogpu`, always-on `[load]`/`[preload]`/`[renderer]` logs | A blank window with no explanation cost real time twice; the failure modes are now visible |
+
+Remaining before this is a distributable product: bundled CJK font, UI-string localization, sleep timer, provider backoff hardening, and the NSIS installer (M5).

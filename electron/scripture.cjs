@@ -198,7 +198,7 @@ async function getChapter({ translation, book, chapter }) {
       verse: r.verse,
       text: norm.text,
       // markup flags so the reader can style supplied words (CUNP/CUNPS)
-      hasSuppliedWords: /\u0001/.test(raw),
+      hasSuppliedWords: raw.includes('\u0001'),
       rawLen: raw.length,
       removedSpaces: norm.removedSpaces,
     };

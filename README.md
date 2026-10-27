@@ -3,9 +3,10 @@
 A Windows desktop Bible reader that speaks what you highlight, in Traditional Chinese,
 English, Spanish, and French.
 
-**Status: M1/M3 core complete** — the app reads the full canon, speaks highlighted text,
-and plays chapters continuously. See `PROPOSAL.md` for the plan and `SPIKE-RESULTS.md` for
-the measurements that shaped it.
+**Status: M0–M4 implemented** — full canon, highlight-to-speak, continuous playback, disk
+cache with offline reads, and OS-voice fallback. Remaining: bundled font, UI localization,
+sleep timer, installer (M5). See `PROPOSAL.md` (incl. §12 as-built deviations) and
+`SPIKE-RESULTS.md` for the measurements that shaped it.
 
 ---
 
@@ -150,7 +151,12 @@ lines to the terminal.
 
 ```bash
 npm install
-npm run dev          # Vite dev server + Electron
+npm start            # build, then run from dist/  (safest: no dev server)
+npm run dev          # Vite dev server + Electron (preflights port 5173)
+npm run doctor       # environment/build/wiring/network checks
+npm run reset        # clear persisted preferences
+npm run dev:free     # kill a stale dev server holding 5173
+npm run start:nogpu  # disable hardware acceleration (blank-window GPU fallback)
 npm run smoke        # headless-ish check: loads app, fetches a chapter, synthesizes a verse
 npm start            # build then run from dist/
 ```
@@ -165,6 +171,10 @@ electron/tts.cjs        Edge TTS synthesis + word-boundary → highlight-plan ma
 src/App.tsx             reader UI, karaoke overlay, transport
 spikes/                 M0 spike scripts (runnable with node)
 electron/books.cjs     localized 66-book name tables (zh-Hant/en/es/fr) + canon sections
+electron/cache.cjs     filesystem chapter/audio cache with LRU index + eviction
+electron/doctor.cjs    `npm run doctor` environment checks
+scripts/predev.mjs     dev-server port preflight
+scripts/dev-free.mjs   frees port 5173
 spikes/out/             generated audio artifacts (gitignored)
 ```
 
