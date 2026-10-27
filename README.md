@@ -47,6 +47,22 @@ That is: the 66-book canon loads with Traditional Chinese names, a verse click s
 and plays with live karaoke, a text selection surfaces the action bar and speaks only the
 selected span, and continuous playback auto-advanced to verse 2 of 36.
 
+## Interface
+
+The UI is reading-first: no permanent control bars compete with the text.
+
+- A slim top bar shows the current reference; clicking it opens a navigator panel with
+  translation, voice, book search, and a chapter grid. The cramped header of selects is gone.
+- Scripture renders in the bundled serif on a paper surface, in a measured column.
+- Light and dark themes follow the OS by default, with a manual toggle in the top bar and the
+  panel. The theme is applied before first paint so there is no flash.
+- Hovering a verse reveals a quiet play marker in the margin; the active verse is softly
+  marked. Selection still raises the speak action bar.
+- The transport is a floating dock with a progress line, speed, sleep timer, and cache state.
+
+Regenerate the visual proof with `npm run shots` (writes light and dark screenshots plus
+palette statistics to `spikes/out/`).
+
 ## Install
 
 ```bash
@@ -191,6 +207,7 @@ electron/books.cjs     localized 66-book name tables (zh-Hant/en/es/fr) + canon 
 electron/cache.cjs     filesystem chapter/audio cache with LRU index + eviction
 electron/doctor.cjs    `npm run doctor` environment checks
 src/i18n.ts            UI strings for 繁體中文 / English / Español / Français
+src/App.css            design tokens, light/dark palettes, reading surface
 src/assets/fonts/      subset Noto Serif TC woff2 (generated, 1.78 MB)
 scripts/build-font.mjs subsets the CJK font to the glyphs the CUV corpus uses
 scripts/make-icon.cjs  renders build/icon.png

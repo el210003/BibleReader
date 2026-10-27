@@ -18,6 +18,7 @@ type Playback = {
 };
 
 type SelectionBar = { x: number; y: number; start: number; end: number };
+type Theme = 'light' | 'dark';
 type Prefs = {
   translation: string;
   voice: string;
@@ -28,6 +29,7 @@ type Prefs = {
 };
 
 const PREFS_KEY = 'biblereader.prefs.v1';
+const THEME_KEY = 'biblereader.theme';
 
 const SELECTION_LABEL: Record<UiLang, string> = {
   'zh-Hant': '選取範圍',
@@ -139,6 +141,10 @@ export default function App() {
   const [queue, setQueue] = useState<{ list: number[]; pos: number } | null>(null);
   const [cache, setCache] = useState<CacheStats | null>(null);
   const [sleepMin, setSleepMin] = useState(0);
+  const [theme, setTheme] = useState<Theme>('light');
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [bookQuery, setBookQuery] = useState('');
+  const [progress, setProgress] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -160,6 +166,18 @@ export default function App() {
   useEffect(() => {
     playbackRef.current = playback;
   }, [playback]);
+
+  // ---------- theme ----------
+  useEffect(() => {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === 'light' || saved === 'dark') setTheme(saved as Theme);
+    else if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) setTheme('dark');
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
 
   // ---------- boot ----------
   useEffect(() => {
@@ -457,6 +475,7 @@ export default function App() {
     const a = audioRef.current;
     if (!a || !playback || playback.mode !== 'edge') return;
     setActiveSpan(-1);
+    setProgress(0);
     a.load();
     a.play().catch((e) => setError(String(e)));
   }, [playback]);
@@ -474,6 +493,10 @@ export default function App() {
         if (tMs >= s.tMs) idx = i;
       }
       setActiveSpan(idx);
+      if (playback.durationMs > 0) {
+        const pct = Math.min(100, (tMs / playback.durationMs) * 100);
+        setProgress((p) => (Math.abs(p - pct) > 0.8 ? pct : p));
+      }
       if (!a.paused) rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
@@ -500,6 +523,7 @@ export default function App() {
     setPlaying(false);
     setActiveSpan(-1);
     setQueue(null);
+    setProgress(0);
   }, []);
 
   const togglePlay = useCallback(() => {
@@ -535,7 +559,8 @@ export default function App() {
       const typing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
 
       if (e.key === 'Escape') {
-        stopAll();
+        if (panelOpen) setPanelOpen(false);
+        else stopAll();
         return;
       }
       if (e.code === 'Space' && !typing) {
@@ -545,13 +570,12 @@ export default function App() {
       }
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        const target = activeVerseRef.current ?? verses[0]?.verse ?? 1;
-        speakVerse(target);
+        speakVerse(activeVerseRef.current ?? verses[0]?.verse ?? 1);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [stopAll, togglePlay, speakVerse, verses]);
+  }, [stopAll, togglePlay, speakVerse, verses, panelOpen]);
 
   // ---------- selection ----------
   const onMouseUp = useCallback(() => {
@@ -611,12 +635,19 @@ export default function App() {
     activeVerseRef.current = activeVerse;
   }, [activeVerse]);
 
-  const bookSections = useMemo(() => {
+  const filteredBooks = useMemo(() => {
     if (!bookList) return [];
+    const q = bookQuery.trim().toLowerCase();
     return (['old', 'new', 'deutero'] as const)
-      .map((s) => ({ key: s, label: bookList.sections[s], books: bookList.books.filter((b) => b.section === s) }))
+      .map((s) => ({
+        key: s,
+        label: bookList.sections[s],
+        books: bookList.books.filter(
+          (b) => b.section === s && (!q || b.name.toLowerCase().includes(q) || b.providerName.toLowerCase().includes(q))
+        ),
+      }))
       .filter((g) => g.books.length > 0);
-  }, [bookList]);
+  }, [bookList, bookQuery]);
 
   return (
     <div className="app">
@@ -625,69 +656,28 @@ export default function App() {
           <span className="brand-cn">聖經朗讀</span>
           <span className="brand-en">BibleReader</span>
         </div>
-        <div className="controls">
-          <label>
-            {t.uiLang}
-            <select
-              data-testid="uilang"
-              value={uiLang}
-              onChange={(e) => setUiLang(e.target.value as UiLang)}
-              aria-label={t.uiLang}
-            >
-              {UI_LANGS.map((l) => (
-                <option key={l.id} value={l.id}>{l.label}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t.translation}
-            <select
-              data-testid="translation"
-              value={translation}
-              aria-label={t.translation}
-              onChange={(e) => {
-                const next = e.target.value;
-                setTranslation(next);
-                const v = catalog?.preferredVoice[next] ?? catalog?.translations[next]?.defaultVoice;
-                if (v) setVoice(v);
-              }}
-            >
-              {catalog &&
-                Object.entries(catalog.translations).map(([k, v]) => (
-                  <option key={k} value={k}>{v.name}</option>
-                ))}
-            </select>
-          </label>
-          <label>
-            {t.book}
-            <select value={book} aria-label={t.book} onChange={(e) => setBook(Number(e.target.value))}>
-              {bookSections.map((g) => (
-                <optgroup key={g.key} label={g.label}>
-                  {g.books.map((b) => (
-                    <option key={b.id} value={b.id}>{b.name}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t.chapter}
-            <select value={chapter} aria-label={t.chapter} onChange={(e) => setChapter(Number(e.target.value))}>
-              {Array.from({ length: currentBook?.chapters ?? 1 }, (_, i) => (
-                <option key={i + 1} value={i + 1}>{i + 1}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t.voice}
-            <select data-testid="voice" value={voice} aria-label={t.voice} onChange={(e) => setVoice(e.target.value)}>
-              {catalog?.translations[translation]?.voices.map((v) => (
-                <option key={v.id} value={v.id}>{v.label}</option>
-              ))}
-            </select>
-          </label>
-          <button onClick={loadChapter} disabled={loading}>
-            {loading ? t.loading : t.load}
+
+        <button className="reference" onClick={() => setPanelOpen(true)} aria-label={t.navigator}>
+          <span>{currentBook?.name ?? '—'} {chapter}</span>
+          <span className="chev" aria-hidden="true">▼</span>
+        </button>
+
+        <div className="bar-actions">
+          <button
+            className="icon-btn"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            aria-label={theme === 'dark' ? t.themeLight : t.themeDark}
+            title={theme === 'dark' ? t.themeLight : t.themeDark}
+          >
+            {theme === 'dark' ? '☀' : '☾'}
+          </button>
+          <button
+            className="icon-btn"
+            onClick={() => setPanelOpen(true)}
+            aria-label={t.readingSettings}
+            title={t.readingSettings}
+          >
+            ⚙
           </button>
         </div>
       </header>
@@ -706,48 +696,59 @@ export default function App() {
       )}
 
       <main className="reader" onMouseUp={onMouseUp} aria-label="Scripture">
-        {chapterMeta?.fromCache && (
-          <p className="cached-note">
-            {t.offlineNote} · {new Date(chapterMeta.fetchedAt).toLocaleDateString()}
-          </p>
-        )}
-        {verses.map((v) => {
-          const segs = segmentsFor(v);
-          return (
-            <div
-              key={v.verse}
-              className={`verse${activeVerse === v.verse ? ' active' : ''}`}
-              data-verse={v.verse}
-              role="button"
-              tabIndex={0}
-              aria-label={`${verseLabel(v.verse)} — ${t.verseTip}`}
-              onClick={() => speakVerse(v.verse)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  speakVerse(v.verse);
-                }
-              }}
-              title={t.verseTip}
-            >
-              <span className="vnum" aria-hidden="true">{v.verse}</span>
-              <p className="vtext">
-                {segs
-                  ? segs.map((seg, i) =>
-                      seg.type === 'span' ? (
-                        <mark key={i} className={seg.spanIdx === activeSpan ? 'on' : undefined}>
-                          {seg.value}
-                        </mark>
-                      ) : (
-                        <span key={i}>{seg.value}</span>
+        <div className="reading-column">
+          {chapterMeta?.fromCache && (
+            <p className="cached-note">
+              {t.offlineNote} · {new Date(chapterMeta.fetchedAt).toLocaleDateString()}
+            </p>
+          )}
+          <div className="chapter-head">
+            <h1>{currentBook?.name ?? ''}</h1>
+            <span className="sub">
+              {t.chapter} {chapter} · {catalog?.translations[translation]?.name ?? ''}
+            </span>
+          </div>
+
+          {loading && <p className="empty">{t.loading}</p>}
+
+          {verses.map((v) => {
+            const segs = segmentsFor(v);
+            return (
+              <div
+                key={v.verse}
+                className={`verse${activeVerse === v.verse ? ' active' : ''}`}
+                data-verse={v.verse}
+                role="button"
+                tabIndex={0}
+                aria-label={`${verseLabel(v.verse)} — ${t.verseTip}`}
+                onClick={() => speakVerse(v.verse)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    speakVerse(v.verse);
+                  }
+                }}
+                title={t.verseTip}
+              >
+                <span className="vnum" aria-hidden="true">{v.verse}</span>
+                <p className="vtext">
+                  {segs
+                    ? segs.map((seg, i) =>
+                        seg.type === 'span' ? (
+                          <mark key={i} className={seg.spanIdx === activeSpan ? 'on' : undefined}>
+                            {seg.value}
+                          </mark>
+                        ) : (
+                          <span key={i}>{seg.value}</span>
+                        )
                       )
-                    )
-                  : v.text}
-              </p>
-            </div>
-          );
-        })}
-        {!loading && verses.length === 0 && !error && <p className="empty">{t.empty}</p>}
+                    : v.text}
+                </p>
+              </div>
+            );
+          })}
+          {!loading && verses.length === 0 && !error && <p className="empty">{t.empty}</p>}
+        </div>
       </main>
 
       {selBar && (
@@ -784,6 +785,10 @@ export default function App() {
             handleEnded();
           }}
         />
+        <div className="progress" aria-hidden="true">
+          <span style={{ width: `${progress}%` }} />
+        </div>
+
         <button className="primary" disabled={!playback} onClick={togglePlay}>
           {playing ? `⏸ ${t.pause}` : `▶ ${t.play}`}
         </button>
@@ -791,6 +796,7 @@ export default function App() {
         <button disabled={!verses.length} onClick={() => startQueue(activeVerse ?? verses[0]?.verse ?? 1)}>
           ▶ {t.readChapter}
         </button>
+
         <label>
           {t.speed}
           <select value={rate} aria-label={t.speed} onChange={(e) => setRate(e.target.value)}>
@@ -809,15 +815,7 @@ export default function App() {
             <option value={60}>60 min</option>
           </select>
         </label>
-        <button
-          onClick={async () => {
-            const s = await window.api.clearCache();
-            setCache(s);
-            setNotice(t.cacheCleared);
-          }}
-        >
-          {t.clearCache}
-        </button>
+
         <div className="meta">
           {status && <span className="pill">{status}</span>}
           {queue && <span className="pill" data-testid="queue">{queue.pos + 1}/{queue.list.length}</span>}
@@ -839,6 +837,136 @@ export default function App() {
           )}
         </div>
       </footer>
+
+      <div className={`scrim${panelOpen ? ' open' : ''}`} onClick={() => setPanelOpen(false)} aria-hidden="true" />
+
+      <aside className={`panel${panelOpen ? ' open' : ''}`} aria-label={t.navigator} inert={!panelOpen}>
+        <div className="panel-head">
+          <h2>{t.readingSettings}</h2>
+          <button className="icon-btn" onClick={() => setPanelOpen(false)} aria-label={t.close}>×</button>
+        </div>
+        <div className="panel-body">
+          <div className="field">
+            <span className="section-label">{t.uiLang}</span>
+            <select
+              data-testid="uilang"
+              value={uiLang}
+              onChange={(e) => setUiLang(e.target.value as UiLang)}
+              aria-label={t.uiLang}
+            >
+              {UI_LANGS.map((l) => (
+                <option key={l.id} value={l.id}>{l.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="field">
+            <span className="section-label">{t.translation}</span>
+            <select
+              data-testid="translation"
+              value={translation}
+              aria-label={t.translation}
+              onChange={(e) => {
+                const next = e.target.value;
+                setTranslation(next);
+                const v = catalog?.preferredVoice[next] ?? catalog?.translations[next]?.defaultVoice;
+                if (v) setVoice(v);
+              }}
+            >
+              {catalog &&
+                Object.entries(catalog.translations).map(([k, v]) => (
+                  <option key={k} value={k}>{v.name}</option>
+                ))}
+            </select>
+          </div>
+
+          <div className="field">
+            <span className="section-label">{t.voice}</span>
+            <select data-testid="voice" value={voice} aria-label={t.voice} onChange={(e) => setVoice(e.target.value)}>
+              {catalog?.translations[translation]?.voices.map((v) => (
+                <option key={v.id} value={v.id}>{v.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="field">
+            <span className="section-label">{t.book}</span>
+            <input
+              type="search"
+              value={bookQuery}
+              placeholder={t.searchBook}
+              aria-label={t.searchBook}
+              onChange={(e) => setBookQuery(e.target.value)}
+            />
+            <div className="book-list" role="listbox" aria-label={t.book}>
+              {filteredBooks.map((g) => (
+                <div key={g.key}>
+                  <div className="book-group-label">{g.label}</div>
+                  {g.books.map((b) => (
+                    <button
+                      key={b.id}
+                      className="book-item"
+                      role="option"
+                      aria-current={b.id === book}
+                      aria-selected={b.id === book}
+                      onClick={() => {
+                        setBook(b.id);
+                        setChapter(1);
+                      }}
+                    >
+                      {b.name}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="field">
+            <span className="section-label">{t.chapter}</span>
+            <div className="chapter-grid">
+              {Array.from({ length: currentBook?.chapters ?? 1 }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  className="chapter-cell"
+                  aria-current={n === chapter}
+                  onClick={() => {
+                    setChapter(n);
+                    setPanelOpen(false);
+                  }}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="field">
+            <span className="section-label">{t.appearance}</span>
+            <button className="wide-btn" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+              {theme === 'dark' ? `☀ ${t.themeLight}` : `☾ ${t.themeDark}`}
+            </button>
+          </div>
+
+          <div className="field">
+            <span className="section-label">{t.clearCache}</span>
+            <button
+              className="wide-btn"
+              onClick={async () => {
+                const s = await window.api.clearCache();
+                setCache(s);
+                setNotice(t.cacheCleared);
+              }}
+            >
+              {t.clearCache}
+            </button>
+          </div>
+
+          <p className="section-label" style={{ letterSpacing: 0, textTransform: 'none', opacity: 0.8 }}>
+            {t.shortcuts}
+          </p>
+        </div>
+      </aside>
     </div>
   );
 }

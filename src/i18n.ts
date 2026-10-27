@@ -39,6 +39,12 @@ type Strings = {
   verseTip: string;
   sleepStopped: string;
   shortcuts: string;
+  navigator: string;
+  readingSettings: string;
+  searchBook: string;
+  appearance: string;
+  themeLight: string;
+  themeDark: string;
 };
 
 const STRINGS: Record<UiLang, Strings> = {
@@ -71,6 +77,12 @@ const STRINGS: Record<UiLang, Strings> = {
     verseTip: '點擊朗讀整節',
     sleepStopped: '睡眠定時已停止朗讀',
     shortcuts: '快捷鍵：Ctrl+Shift+S 朗讀 · 空白鍵 播放/暫停 · Esc 停止',
+    navigator: '導航',
+    readingSettings: '閱讀設定',
+    searchBook: '搜尋書卷',
+    appearance: '外觀',
+    themeLight: '淺色',
+    themeDark: '深色',
   },
   en: {
     translation: 'Translation',
@@ -101,6 +113,12 @@ const STRINGS: Record<UiLang, Strings> = {
     verseTip: 'Click to read this verse',
     sleepStopped: 'Sleep timer stopped playback',
     shortcuts: 'Shortcuts: Ctrl+Shift+S speak · Space play/pause · Esc stop',
+    navigator: 'Navigate',
+    readingSettings: 'Reading settings',
+    searchBook: 'Search books',
+    appearance: 'Appearance',
+    themeLight: 'Light',
+    themeDark: 'Dark',
   },
   es: {
     translation: 'Traducción',
@@ -131,6 +149,12 @@ const STRINGS: Record<UiLang, Strings> = {
     verseTip: 'Clic para leer este versículo',
     sleepStopped: 'El temporizador detuvo la reproducción',
     shortcuts: 'Atajos: Ctrl+Shift+S leer · Espacio reproducir/pausa · Esc detener',
+    navigator: 'Navegar',
+    readingSettings: 'Ajustes de lectura',
+    searchBook: 'Buscar libros',
+    appearance: 'Apariencia',
+    themeLight: 'Claro',
+    themeDark: 'Oscuro',
   },
   fr: {
     translation: 'Traduction',
@@ -161,6 +185,12 @@ const STRINGS: Record<UiLang, Strings> = {
     verseTip: 'Cliquez pour lire ce verset',
     sleepStopped: 'Le minuteur a arrêté la lecture',
     shortcuts: 'Raccourcis : Ctrl+Shift+S lire · Espace lecture/pause · Échap arrêter',
+    navigator: 'Naviguer',
+    readingSettings: 'Paramètres de lecture',
+    searchBook: 'Rechercher un livre',
+    appearance: 'Apparence',
+    themeLight: 'Clair',
+    themeDark: 'Sombre',
   },
 };
 

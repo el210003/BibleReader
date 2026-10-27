@@ -23,7 +23,8 @@
     "icon": "electron scripts/make-icon.cjs",
     "font": "node scripts/build-font.mjs",
     "dist": "npm run build && electron-builder --win --publish never",
-    "dist:dir": "npm run build && electron-builder --win --dir"
+    "dist:dir": "npm run build && electron-builder --win --dir",
+    "shots": "cross-env SHOT=1 electron . && electron scripts/shot-stats.cjs"
   },
   "dependencies": {
     "msedge-tts": "^2.1.1"

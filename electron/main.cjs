@@ -93,12 +93,25 @@ function createWindow() {
         console.log('[probe] failed', String(e));
       }
       try {
-        const img = await win.webContents.capturePage();
         const fs = require('node:fs');
         fs.mkdirSync(path.join(__dirname, '..', 'spikes', 'out'), { recursive: true });
-        const out = path.join(__dirname, '..', 'spikes', 'out', 'shot.png');
-        fs.writeFileSync(out, img.toPNG());
-        console.log('[shot] saved', out, JSON.stringify(img.getSize()));
+        const shoot = async (name) => {
+          const img = await win.webContents.capturePage();
+          const out = path.join(__dirname, '..', 'spikes', 'out', name);
+          fs.writeFileSync(out, img.toPNG());
+          console.log('[shot] saved', name, JSON.stringify(img.getSize()));
+        };
+        // force light first: a previously persisted theme would otherwise make both shots identical
+        await win.webContents.executeJavaScript(
+          "document.documentElement.dataset.theme='light'; localStorage.setItem('biblereader.theme','light');"
+        );
+        await new Promise((r) => setTimeout(r, 900));
+        await shoot('shot-light.png');
+        await win.webContents.executeJavaScript(
+          "document.documentElement.dataset.theme='dark'; localStorage.setItem('biblereader.theme','dark');"
+        );
+        await new Promise((r) => setTimeout(r, 900));
+        await shoot('shot-dark.png');
       } catch (e) {
         console.log('[shot] failed', String(e));
       }
@@ -248,6 +261,21 @@ function createWindow() {
                const shortcutMarks = document.querySelectorAll('.vtext mark').length;
                const keyboardTest = { queueAfterEsc, shortcutMarks, spoke: shortcutMarks > 0 };
 
+               // 6) navigator panel: opens, lists books, offers a chapter grid, closes
+               document.querySelector('.reference')?.click();
+               await wait(500);
+               const panelEl = document.querySelector('.panel');
+               const panelTest = {
+                 open: panelEl?.classList.contains('open') ?? false,
+                 bookItems: document.querySelectorAll('.book-item').length,
+                 chapterCells: document.querySelectorAll('.chapter-cell').length,
+                 hasSearch: !!document.querySelector('input[type="search"]'),
+                 theme: document.documentElement.dataset.theme,
+               };
+               panelEl?.querySelector('.panel-head .icon-btn')?.click();
+               await wait(400);
+               panelTest.closedAgain = !document.querySelector('.panel')?.classList.contains('open');
+
                return JSON.stringify({
                  ...base,
                  initial,
@@ -257,6 +285,7 @@ function createWindow() {
                  queueTest,
                  i18nTest,
                  keyboardTest,
+                 panelTest,
                  prefs: localStorage.getItem('biblereader.prefs.v1'),
                });
                } catch (e) { return JSON.stringify({ error: String((e && (e.stack || e.message)) || e) }); }
