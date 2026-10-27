@@ -18,7 +18,8 @@
     "doctor": "node electron/doctor.cjs",
     "reset": "cross-env BIBLEREADER_RESET_PREFS=1 electron .",
     "start:nogpu": "cross-env BIBLEREADER_DISABLE_GPU=1 electron .",
-    "dev:free": "node scripts/dev-free.mjs"
+    "dev:free": "node scripts/dev-free.mjs",
+    "test": "node --test tests/"
   },
   "dependencies": {
     "msedge-tts": "^2.1.1",

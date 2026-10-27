@@ -284,6 +284,22 @@ ipcMain.handle('cache:clear', () => {
   return cache.stats();
 });
 
+// Two instances would fight over the same cache directory and LRU index.
+// Smoke/shot modes intentionally bypass the lock so they can run alongside a live window.
+const testMode = Boolean(process.env.SMOKE || process.env.SHOT);
+const gotLock = testMode ? true : app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    const win = BrowserWindow.getAllWindows()[0];
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    }
+  });
+}
+
 app.whenReady().then(async () => {
   // Support escape hatch: stale preferences can make the app open in an unexpected
   // translation/book. BIBLEREADER_RESET_PREFS=1 clears them before the first load.

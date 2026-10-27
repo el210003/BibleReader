@@ -157,6 +157,7 @@ npm run doctor       # environment/build/wiring/network checks
 npm run reset        # clear persisted preferences
 npm run dev:free     # kill a stale dev server holding 5173
 npm run start:nogpu  # disable hardware acceleration (blank-window GPU fallback)
+npm test             # offset-math unit tests (normalization, boundary mapping)
 npm run smoke        # headless-ish check: loads app, fetches a chapter, synthesizes a verse
 npm start            # build then run from dist/
 ```
@@ -169,6 +170,7 @@ electron/preload.cjs    contextBridge API (getCatalog / getChapter / speak)
 electron/scripture.cjs  bolls.life provider + CUV normalization
 electron/tts.cjs        Edge TTS synthesis + word-boundary → highlight-plan mapping
 src/App.tsx             reader UI, karaoke overlay, transport
+tests/                  offset-math unit tests (`npm test`)
 spikes/                 M0 spike scripts (runnable with node)
 electron/books.cjs     localized 66-book name tables (zh-Hant/en/es/fr) + canon sections
 electron/cache.cjs     filesystem chapter/audio cache with LRU index + eviction
