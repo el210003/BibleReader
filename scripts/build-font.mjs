@@ -14,7 +14,9 @@ const root = path.join(import.meta.dirname, '..');
 const cacheDir = path.join(root, '.fontcache');
 const outDir = path.join(root, 'src', 'assets', 'fonts');
 const SOURCE_URL = 'https://github.com/notofonts/noto-cjk/raw/main/Serif/Variable/OTF/Subset/NotoSerifTC-VF.otf';
-const CORPUS_URL = 'https://bolls.life/static/translations/CUV.json';
+// Every Chinese translation the app ships, so no glyph is missing for CUNP/PCB/ChiSB etc.
+const CORPUS_TRANSLATIONS = ['CUV', 'CUNP', 'CUNPS', 'PCB', 'PCBS', 'ChiSB'];
+const corpusUrl = (t) => `https://bolls.life/static/translations/${t}.json`;
 
 fs.mkdirSync(cacheDir, { recursive: true });
 fs.mkdirSync(outDir, { recursive: true });
@@ -29,12 +31,6 @@ if (!fs.existsSync(sourcePath)) {
 console.log('[font] source:', (fs.statSync(sourcePath).size / 1048576).toFixed(1), 'MB');
 
 // --- collect the codepoints actually used by the Chinese scripture ---
-console.log('[font] fetching CUV corpus…');
-const corpusRes = await fetch(CORPUS_URL);
-if (!corpusRes.ok) throw new Error(`corpus download ${corpusRes.status}`);
-const verses = await corpusRes.json();
-console.log('[font] corpus verses:', verses.length);
-
 const strip = (html) => String(html).replace(/<[^>]*>/g, '').replace(/&[a-z#0-9]+;/gi, ' ');
 const cps = new Set();
 
@@ -48,13 +44,22 @@ addRange(0x2000, 0x206f);
 addRange(0x3000, 0x303f); // CJK punctuation
 addRange(0xff00, 0xffef); // fullwidth forms
 
-for (const v of verses) {
-  for (const ch of strip(v.text)) {
-    const cp = ch.codePointAt(0);
-    if (cp !== undefined) cps.add(cp);
+let corpusVerses = 0;
+for (const tr of CORPUS_TRANSLATIONS) {
+  console.log('[font] fetching corpus', tr, '…');
+  const res = await fetch(corpusUrl(tr));
+  if (!res.ok) throw new Error(`corpus ${tr} ${res.status}`);
+  const verses = await res.json();
+  corpusVerses += verses.length;
+  for (const v of verses) {
+    for (const ch of strip(v.text)) {
+      const cp = ch.codePointAt(0);
+      if (cp !== undefined) cps.add(cp);
+    }
   }
+  console.log('[font]  ', tr, 'verses:', verses.length, '| cumulative codepoints:', cps.size);
 }
-console.log('[font] distinct codepoints:', cps.size);
+console.log('[font] corpus verses total:', corpusVerses, '| distinct codepoints:', cps.size);
 
 const unicodesFile = path.join(cacheDir, 'unicodes.txt');
 fs.writeFileSync(unicodesFile, [...cps].map((c) => c.toString(16)).join(','));

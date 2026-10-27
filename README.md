@@ -191,7 +191,7 @@ electron/books.cjs     localized 66-book name tables (zh-Hant/en/es/fr) + canon 
 electron/cache.cjs     filesystem chapter/audio cache with LRU index + eviction
 electron/doctor.cjs    `npm run doctor` environment checks
 src/i18n.ts            UI strings for 繁體中文 / English / Español / Français
-src/assets/fonts/      subset Noto Serif TC woff2 (generated, 1.26 MB)
+src/assets/fonts/      subset Noto Serif TC woff2 (generated, 1.78 MB)
 scripts/build-font.mjs subsets the CJK font to the glyphs the CUV corpus uses
 scripts/make-icon.cjs  renders build/icon.png
 build/icon.png         installer/app icon
