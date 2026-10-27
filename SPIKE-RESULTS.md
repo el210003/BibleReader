@@ -141,16 +141,59 @@ Additional design consequences:
 - Client timeout should scale with text length; per-verse requests make this a non-issue.
 - `CUNP`/`CUNPS` need `<i>` preserved through sanitization.
 
+## Spike 07 — Concurrency / throttling
+
+Every earlier spike was strictly sequential. The real app overlaps requests (prefetch verse N+1 while N plays, fast clicking), so this needed measuring.
+
+| concurrency | wall | ok | failed |
+|---|---|---|---|
+| 1 | 674 ms | 1/1 | 0 |
+| 2 | 1,758 ms | 2/2 | 0 |
+| 4 | 1,698 ms | 4/4 | 0 |
+| 8 | 1,696 ms | 8/8 | 0 |
+
+Sustained burst of 8 requests, twice back-to-back with no cooldown: **8/8 both rounds** (591 ms and 436 ms).
+
+**No 403s, no throttling, no socket errors at 8 parallel.** Each request used its own `MsEdgeTTS` instance (its own WebSocket). Since the design only needs 1–2 requests in flight (one playing, one prefetching), there is substantial headroom.
+
+## Spike 08 — Offline fallback viability
+
+Tested in a real Electron renderer via `speechSynthesis`.
+
+**OS voices are installed for all four launch locales on this machine:**
+
+| locale | voice |
+|---|---|
+| `zh-TW` | Microsoft Hanhan, Yating, Zhiwei |
+| `en-US` | Microsoft David, Mark, Zira |
+| `es-ES` | Microsoft Helena, Laura, Pablo |
+| `fr-FR` | Microsoft Hortense, Julie, Paul |
+
+15 voices total. All four locales **speak successfully**, with much faster start than Edge TTS:
+
+| locale | start | end | `onboundary` events |
+|---|---|---|---|
+| zh-TW | 118 ms | yes | **10** |
+| en-US | 53 ms | yes | **7** |
+| es-ES | 47 ms | yes | **9** |
+| fr-FR | 36 ms | yes | **8** |
+
+**The fallback retains karaoke.** Chromium fires `onboundary` for these SAPI voices, so the degraded mode is not "sentence-level highlight or nothing" as the proposal assumed — the same overlay can drive word highlighting from OS-voice boundaries. Quality is clearly worse (SAPI is robotic) but the interaction survives.
+
+Note: the first version of this probe reported "es did not start" — that was a test artifact from queuing utterances without `cancel()` between them, not a real failure. Corrected above.
+
 ## What is now de-risked
 
 - Edge TTS works today with no key and no token failures.
 - Word-boundary karaoke is feasible for all four languages with 100% mapping accuracy.
 - MP3 chunk stitching is exact, so multi-verse passages and prefetch are safe.
 - Verse-sized synthesis latency (260–511 ms) supports the "speak on click within 2 s" acceptance criterion.
+- 8 parallel synthesis requests complete cleanly; prefetch will not trip throttling.
+- The offline fallback has working OS voices for all four locales, and `onboundary` keeps karaoke alive.
 
 ## What remains unverified
 
-- Behaviour under sustained load / parallel synthesis (spikes were strictly sequential). M2 must test 3–5 concurrent requests for 403 throttling.
-- Offline / Web Speech fallback quality on this machine.
-- Whether the `Sec-MS-GEC` token path stays stable over weeks.
-- Audio quality for `es-MX` / `fr-CA` variants (only `zh-TW` and `en-US` were exercised).
+- **Offline failure latency.** When Edge TTS is unreachable, `msedge-tts` defaults to a 10 s connection timeout before erroring. A 10 s hang before falling back is bad UX; the app should set `connectionTimeoutMs` to ~2–3 s. This is a config decision, not an unknown, but it has not been exercised on a truly disconnected machine.
+- **Sustained multi-hour usage** — the spikes ran for seconds to minutes, not hours. The `Sec-MS-GEC` token path could still rotate or break over a long session.
+- **Audio quality for `es-MX` / `fr-CA`** — only `es-ES` and `fr-FR` were exercised; the Latin-American and Canadian variants are untested.
+- **`onboundary` coverage across machines** — verified here (15 voices), but a machine without the Chinese language pack would have no `zh-TW` OS voice, so the fallback must detect absence and say so rather than silently speaking English.

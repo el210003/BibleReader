@@ -81,7 +81,9 @@ function buildSpans(boundaries, verseText) {
 }
 
 async function synthesize({ text, voice, locale, rate }) {
-  const tts = new MsEdgeTTS();
+  // Short connection deadline: if Edge is unreachable we want to fall back fast rather
+  // than hang for the library default (10s) with the user staring at a spinner.
+  const tts = new MsEdgeTTS({ connectionTimeoutMs: 4000 });
   await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3, {
     wordBoundaryEnabled: true,
     sentenceBoundaryEnabled: true,

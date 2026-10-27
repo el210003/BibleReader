@@ -342,4 +342,4 @@ Proceed with M1 (reader core + i18n). Default configuration: UI in 繁體中文,
 
 M0 is complete and the two external dependencies are validated against live services (`SPIKE-RESULTS.md`). The one assumption that was wrong made the plan cheaper: Chinese highlighting is phrase-level, so a single highlight path serves all four languages.
 
-Before M2, close the remaining unknowns: concurrent-request throttling (403), Web Speech fallback quality, and `es-MX`/`fr-CA` audio quality.
+Before M2, close the remaining unknowns: sustained multi-hour stability of the `Sec-MS-GEC` token path, and `es-MX`/`fr-CA` audio quality. Concurrency and the offline fallback were measured after this proposal was first drafted and are now closed (`SPIKE-RESULTS.md` §07–08): 8 parallel requests complete with no throttling, and OS voices exist for all four locales with working `onboundary` events, so the fallback keeps karaoke alive.
