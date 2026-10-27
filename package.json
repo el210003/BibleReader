@@ -81,5 +81,6 @@
       "artifactName": "BibleReader-Setup-${version}.${ext}"
     }
   },
-  "author": "BibleReader"
+  "author": "BibleReader",
+  "license": "MIT"
 }

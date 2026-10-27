@@ -242,3 +242,17 @@ for packaged builds.
 
 Scripture text is served by bolls.life. Public-domain editions are used as defaults so the
 app is legally clean out of the box.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+### Third-party notices
+
+- **Bundled font:** Noto Serif TC, subset to the glyphs the Chinese scripture uses, under the
+  SIL Open Font License 1.1.
+- **Scripture text:** fetched from bolls.life. The shipped defaults are public-domain editions
+  (CUV 1919, WEB, RV1960, FRLSG). Licensed translations (NIV, ESV, NVI, NBS, 思高) are opt-in
+  selections and remain under their publishers' terms — the MIT license covers this app's code,
+  not the scripture text.
+- **Speech:** Edge Read Aloud voices are provided by Microsoft's service.
