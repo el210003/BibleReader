@@ -259,6 +259,8 @@ export default function App() {
       const u = new SpeechSynthesisUtterance(text);
       u.voice = v;
       u.lang = v.lang;
+      // honour the same speed control the Edge path uses (SAPI accepts 0.1-10)
+      u.rate = Math.min(10, Math.max(0.1, Number(rate) || 1));
 
       setPlayback((prev) => {
         if (prev?.url) URL.revokeObjectURL(prev.url);
@@ -300,7 +302,7 @@ export default function App() {
       synth.speak(u);
       setNotice(`Edge 不可用，改用系統語音（${v.lang}）`);
     },
-    [chapterIndex, getSystemVoice]
+    [chapterIndex, getSystemVoice, rate]
   );
 
   // ---------- Edge TTS ----------
