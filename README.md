@@ -189,6 +189,8 @@ npm test             # offset-math unit tests (normalization, boundary mapping)
 npm run font         # regenerate the subset CJK font (needs fonttools + brotli)
 npm run icon         # regenerate build/icon.png
 npm run dist         # build the NSIS installer
+node scripts/publish-github.mjs repo        # create the private GitHub repo (token from git credential store)
+node scripts/publish-github.mjs release <owner> <repo> <tag> <installer>   # publish a release
 npm run smoke        # headless-ish check: loads app, fetches a chapter, synthesizes a verse
 npm start            # build then run from dist/
 ```
