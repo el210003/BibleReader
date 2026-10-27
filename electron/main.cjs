@@ -312,7 +312,35 @@ function createWindow() {
                await wait(400);
                panelTest.closedAgain = !document.querySelector('.panel')?.classList.contains('open');
 
-               // 7) Hebrew: RTL scripture, Hebrew canon, Hebrew voice + span mapping
+               // 7) adjustable scripture size (panel control + keyboard shortcut)
+               const sizeInput = document.querySelector('[data-testid="fontsize"]');
+               const setRange = (el, v) => {
+                 const d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+                 d.set.call(el, String(v));
+                 el.dispatchEvent(new Event('input', { bubbles: true }));
+                 el.dispatchEvent(new Event('change', { bubbles: true }));
+               };
+               const sizeBefore = getComputedStyle(document.querySelector('.vtext')).fontSize;
+               let sizeAfter = sizeBefore, sizeAfterKey = sizeBefore;
+               if (sizeInput) {
+                 setRange(sizeInput, 30);
+                 await wait(400);
+                 sizeAfter = getComputedStyle(document.querySelector('.vtext')).fontSize;
+                 window.dispatchEvent(new KeyboardEvent('keydown', { key: '=', ctrlKey: true, bubbles: true }));
+                 await wait(400);
+                 sizeAfterKey = getComputedStyle(document.querySelector('.vtext')).fontSize;
+               }
+               const fontSizeTest = {
+                 hasControl: !!sizeInput,
+                 before: sizeBefore,
+                 afterSlider: sizeAfter,
+                 afterShortcut: sizeAfterKey,
+                 changedBySlider: sizeBefore !== sizeAfter,
+                 changedByShortcut: sizeAfter !== sizeAfterKey,
+                 persisted: JSON.parse(localStorage.getItem('biblereader.prefs.v1') || '{}').fontSize ?? null,
+               };
+
+               // 8) Hebrew: RTL scripture, Hebrew canon, Hebrew voice + span mapping
                setSelect(document.querySelector('[data-testid="translation"]'), 'WLC');
                await wait(3200);
                const col = document.querySelector('.reading-column');
@@ -359,6 +387,7 @@ function createWindow() {
                  i18nTest,
                  keyboardTest,
                  panelTest,
+                 fontSizeTest,
                  hebrewTest,
                  prefs: localStorage.getItem('biblereader.prefs.v1'),
                });

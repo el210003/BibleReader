@@ -26,6 +26,7 @@ type Prefs = {
   chapter: number;
   region?: string;
   uiLang?: UiLang;
+  fontSize?: number;
 };
 
 const PREFS_KEY = 'biblereader.prefs.v1';
@@ -141,6 +142,7 @@ export default function App() {
   const [queue, setQueue] = useState<{ list: number[]; pos: number } | null>(null);
   const [cache, setCache] = useState<CacheStats | null>(null);
   const [sleepMin, setSleepMin] = useState(0);
+  const [fontSize, setFontSize] = useState(20);
   const [theme, setTheme] = useState<Theme>('light');
   const [panelOpen, setPanelOpen] = useState(false);
   const [bookQuery, setBookQuery] = useState('');
@@ -181,6 +183,11 @@ export default function App() {
     localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
 
+  // scripture size is a user preference, applied as a CSS variable
+  useEffect(() => {
+    document.documentElement.style.setProperty('--scripture-size', `${fontSize}px`);
+  }, [fontSize]);
+
   // ---------- boot ----------
   useEffect(() => {
     window.api
@@ -195,6 +202,9 @@ export default function App() {
           setChapter(saved.chapter);
           setRegion(saved.region ?? c.defaults.region);
           if (saved.uiLang) setUiLang(saved.uiLang);
+          if (typeof saved.fontSize === 'number' && saved.fontSize >= 16 && saved.fontSize <= 34) {
+            setFontSize(saved.fontSize);
+          }
         } else {
           setTranslation(c.defaults.translation);
           setVoice(c.defaults.voice);
@@ -208,8 +218,8 @@ export default function App() {
 
   useEffect(() => {
     if (!hydrated) return;
-    savePrefs({ translation, voice, book, chapter, region, uiLang });
-  }, [hydrated, translation, voice, book, chapter, region, uiLang]);
+    savePrefs({ translation, voice, book, chapter, region, uiLang, fontSize });
+  }, [hydrated, translation, voice, book, chapter, region, uiLang, fontSize]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -568,6 +578,16 @@ export default function App() {
       if (e.code === 'Space' && !typing) {
         e.preventDefault();
         togglePlay();
+        return;
+      }
+      if (e.ctrlKey && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        setFontSize((f) => Math.min(34, f + 1));
+        return;
+      }
+      if (e.ctrlKey && e.key === '-') {
+        e.preventDefault();
+        setFontSize((f) => Math.max(16, f - 1));
         return;
       }
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 's') {
@@ -941,6 +961,37 @@ export default function App() {
                   {n}
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div className="field">
+            <span className="section-label">{t.textSize}</span>
+            <div className="size-row">
+              <button
+                className="icon-btn"
+                aria-label="−"
+                onClick={() => setFontSize((f) => Math.max(16, f - 1))}
+              >
+                A−
+              </button>
+              <input
+                type="range"
+                min={16}
+                max={34}
+                step={1}
+                value={fontSize}
+                data-testid="fontsize"
+                aria-label={t.textSize}
+                onChange={(e) => setFontSize(Number(e.target.value))}
+              />
+              <button
+                className="icon-btn"
+                aria-label="+"
+                onClick={() => setFontSize((f) => Math.min(34, f + 1))}
+              >
+                A+
+              </button>
+              <output>{fontSize}px</output>
             </div>
           </div>
 

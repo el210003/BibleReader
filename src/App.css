@@ -61,6 +61,25 @@
   box-sizing: border-box;
 }
 
+input[type='range'] {
+  accent-color: var(--accent);
+  width: 100%;
+}
+
+.size-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.size-row output {
+  min-width: 3.2em;
+  text-align: center;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+}
+
 html,
 body,
 #root {
@@ -290,7 +309,8 @@ input:focus-visible {
 .vtext {
   margin: 0;
   font-family: var(--font-scripture);
-  font-size: clamp(18px, 1.55vw, 20.5px);
+  /* user-controlled; line-height is unitless so leading scales with the size */
+  font-size: var(--scripture-size, 20px);
   line-height: 1.95;
   letter-spacing: 0.005em;
   color: var(--ink);

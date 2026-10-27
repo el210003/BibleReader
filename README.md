@@ -63,6 +63,8 @@ The UI is reading-first: no permanent control bars compete with the text.
   panel. The theme is applied before first paint so there is no flash.
 - Hovering a verse reveals a quiet play marker in the margin; the active verse is softly
   marked. Selection still raises the speak action bar.
+- Scripture size is adjustable (16–34 px) from the panel or with Ctrl +/−, and persists
+  between sessions. Leading scales with it.
 - The transport is a floating dock with a progress line, speed, sleep timer, and cache state.
 
 Regenerate the visual proof with `npm run shots` (writes light and dark screenshots plus
