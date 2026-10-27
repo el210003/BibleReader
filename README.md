@@ -109,6 +109,17 @@ The app now tells you *why* instead of showing nothing:
 | preload failed | "Preload script did not load" |
 | render-time exception | the stack trace and a Reload button |
 
+**Most common cause: a stale dev server.** `npm run dev` uses a fixed port; if a Vite server
+from a previous session is still listening on 5173, the script dies with
+`Port 5173 is already in use` and `concurrently -k` kills Electron, so no window appears.
+`npm run dev` now preflights the port and tells you what to do:
+
+```bash
+npm run dev:free     # kill whatever holds 5173
+```
+
+Or skip the dev server entirely with `npm start`, which builds and runs from `dist`.
+
 Run the environment check first:
 
 ```bash

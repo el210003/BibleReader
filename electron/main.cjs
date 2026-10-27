@@ -73,10 +73,8 @@ function createWindow() {
   win.webContents.on('render-process-gone', (_e, details) => {
     console.log('[renderer] process gone:', JSON.stringify(details));
   });
-  win.webContents.on('console-message', (event, level, message) => {
-    const msg = typeof event === 'object' && event?.message ? event.message : message;
-    const lvl = typeof event === 'object' && event?.level !== undefined ? event.level : level;
-    console.log(`[renderer:${lvl}] ${msg}`);
+  win.webContents.on('console-message', (event) => {
+    console.log(`[renderer:${event.level}] ${event.message}`);
   });
   win.webContents.on('preload-error', (_e, p, err) => {
     console.log('[preload] ERROR', p, String(err));
