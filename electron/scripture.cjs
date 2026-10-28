@@ -1,6 +1,6 @@
 // Scripture provider + normalization. Shared logic, used by the main process.
-// M0 scope: bolls.life only, four translations. The provider adapter interface and the
-// getBible fallback are M1 work.
+// Single provider by design: bolls.life (https://bolls.life), no API key. There is no
+// secondary provider wired yet — if bolls.life is unreachable only cached chapters load.
 
 const books = require('./books.cjs');
 const cache = require('./cache.cjs');

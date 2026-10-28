@@ -272,6 +272,9 @@ for packaged builds.
   synthesize per verse.
 - Each verse's audio carries 500–950 ms of trailing silence. Decide the inter-verse pause
   explicitly rather than inheriting it.
+- **Single scripture provider.** All text comes from bolls.life; getBible.net is documented as
+  a fallback but is not wired. If bolls.life is down or slow, only chapters you have already
+  read (from the local cache) will open.
 - Most of the catalogue is licensed (©): `CUNP`, `BTX3`, `RV2004`, `PDT`, `NTV`, `LBLA`,
   `NBS`, `FRPDV17`, `BDS`. That is fine for personal reading; the app labels each one rather
   than implying they are all free. `NVI` is not shipped because the provider serves a

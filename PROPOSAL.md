@@ -15,7 +15,7 @@ BibleReader is a Windows desktop application for reading scripture in Traditiona
 
 The design avoids paid APIs entirely in v1:
 
-- **Scripture text** comes from open Bible APIs (bolls.life primary, getBible.net secondary) and is cached locally so re-reading is instant and offline-capable.
+- **Scripture text** comes from bolls.life (the only provider wired) and is cached locally so re-reading is instant and offline-capable. A second provider is planned, not built.
 - **Speech** comes from Microsoft Edge's Read Aloud neural voices via `msedge-tts` — free, no API key, and it returns **word-boundary timings**, which enables real karaoke-style highlighting of the spoken verse.
 
 Language scope is four UI locales: **Traditional Chinese (default), English, Spanish, French** — plus **Hebrew scripture** (RTL, added post-M5; Hebrew is a scripture language, not a UI locale).
@@ -123,7 +123,7 @@ Public-domain defaults are chosen deliberately: the app ships legally clean out 
 | UI | React + TypeScript + Vite | Standard, well-supported, fast iteration. |
 | State | Zustand + persisted settings | Small, no boilerplate. |
 | Storage | **Filesystem cache** (`cache.cjs`): JSON for chapters, blobs for audio, JSON LRU index | **As built.** SQLite (`better-sqlite3`) was dropped: it is a native module needing a rebuild per Electron/Node ABI, and the workload (chapter-shaped reads, blob audio) does not need SQL. The LRU index is rebuilt from the filesystem if lost. |
-| Text provider | bolls.life (primary), getBible.net v2 (secondary/fallback) | No keys; carries all four target languages (CUV/CUNP, WEB/KJV/ASV, RV1960/BTX3, FRLSG/FRDBY) plus bulk download. |
+| Text provider | bolls.life (only provider implemented); getBible.net v2 is planned as a fallback | No keys; carries every edition shipped (CUV/CUNP, WLC/DHNT, WEB, 6 Spanish, 5 French). **As built: single provider** — a bolls.life outage means cached chapters only. |
 | TTS | `msedge-tts` (Edge Read Aloud) with `MetadataOptions: WordBoundary` | Free, no key, huge locale coverage, returns word timings. |
 | Packaging | electron-builder → NSIS installer | Standard Windows distribution. |
 
@@ -173,7 +173,7 @@ interface ScriptureProvider {
 - Chapter: `https://bolls.life/get-text/<TRANSLATION>/<book>/<chapter>/` → `[{pk, verse, text (HTML), comment?}]`
 - Single verse: `https://bolls.life/get-verse/<TRANSLATION>/<book>/<chapter>/<verse>/`
 - Bulk (offline seed, *not* per-read): `https://bolls.life/static/translations/<TRANSLATION>.json` or `.zip`
-- Secondary: `https://api.getbible.net/v2/<translation>/<book>/<chapter>.json`
+- Secondary (**planned, not wired**): `https://api.getbible.net/v2/<translation>/<book>/<chapter>.json`
 
 **Provider etiquette (explicit, because the maintainer asks for it):** never scrape the whole Bible through `get-text`. Fetch chapter-by-chapter as the user reads, cache aggressively, and use the bulk `.json`/`.zip` download only when the user opts into "make this translation available offline". Throttle to ≤ 1 request/sec with exponential backoff on 429/5xx, and set a descriptive User-Agent.
 
@@ -280,7 +280,7 @@ Estimates assume one developer, part-time, with the provider and TTS spikes done
 | Edge TTS throttling / 403 on bursts | Failed synthesis during fast browsing | Per-verse audio cache, ≤ 1 in-flight synthesis, exponential backoff, prefetch only one verse ahead |
 | Long passages exceed per-request limits | Truncated or failed audio | Sentence-aligned chunking with stitching (designed in, §4.4) |
 | Licensed translations (NIV/ESV/NASB, NVI/LBLA, NBS/BDS, 思高) served by bolls | Legal friction if redistributed | Fine for personal use; for public distribution default to the public-domain editions (`CUV`, `WEB`, `RV1960`, `FRLSG`) and surface the license per translation |
-| Provider downtime or schema change | Blank reader | Second provider adapter, cached chapters survive outages, visible error state |
+| Provider downtime or schema change | Blank reader for uncached chapters | Cached chapters survive outages and errors surface visibly. **Not yet mitigated:** no second provider adapter exists |
 | Word-boundary rebasing bugs across chunks | Highlight drifts out of sync | Unit-test the offset math with fixed fixtures; clamp highlight to the active verse |
 | CJK highlight misalignment | Karaoke sync drifts or highlights the wrong glyph | **De-risked in M0**: 100% boundary→offset mapping, monotonic, zero mismatches on CUV and WEB; bridge punctuation gaps, clamp to verse span |
 | Missing CJK font on user machine | Tofu boxes / wrong glyph forms | Bundle a Source Han Serif TC subset in the installer rather than trusting system fonts |
