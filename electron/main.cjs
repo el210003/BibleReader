@@ -340,7 +340,19 @@ function createWindow() {
                  persisted: JSON.parse(localStorage.getItem('biblereader.prefs.v1') || '{}').fontSize ?? null,
                };
 
-               // 8) Hebrew: RTL scripture, Hebrew canon, Hebrew voice + span mapping
+               // 8) expanded translation catalogue: all entries load real scripture
+               const transSel2 = document.querySelector('[data-testid="translation"]');
+               const translationOptions = transSel2 ? [...transSel2.options].map(o => o.value) : [];
+               setSelect(transSel2, 'LBLA');
+               await wait(2600);
+               const lb = {
+                 verses: document.querySelectorAll('.verse').length,
+                 first: document.querySelector('.vtext')?.textContent?.slice(0, 30) ?? null,
+                 license: document.querySelector('.license-note')?.textContent ?? null,
+               };
+               const translationTest = { count: translationOptions.length, options: translationOptions, lb };
+
+               // 9) Hebrew: RTL scripture, Hebrew canon, Hebrew voice + span mapping
                setSelect(document.querySelector('[data-testid="translation"]'), 'WLC');
                await wait(3200);
                const col = document.querySelector('.reading-column');
@@ -388,6 +400,7 @@ function createWindow() {
                  keyboardTest,
                  panelTest,
                  fontSizeTest,
+                 translationTest,
                  hebrewTest,
                  prefs: localStorage.getItem('biblereader.prefs.v1'),
                });

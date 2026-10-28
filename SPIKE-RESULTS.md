@@ -224,6 +224,21 @@ Note: `capturePage` returned a stale frame after text-only changes in an occlude
 the Hebrew screenshot is taken from a second offscreen window. Worth remembering for any
 future visual regression testing.
 
+## Spike 12 — translation catalogue audit (Spanish / French)
+
+Fetched every Spanish and French edition the provider lists and checked each for real
+scripture, canon size, direction and markup.
+
+| Language | entries | usable | notes |
+|---|---|---|---|
+| Spanish | 7 | 6 | `BTX3`, `RV1960`, `RV2004`, `PDT`, `NTV`, `LBLA` all return scripture; **`NVI` returns a Biblica placeholder** |
+| French | 5 | 5 | `NBS`, `FRDBY`, `FRLSG`, `FRPDV17`, `BDS`; `FRPDV17` has 75 books (9 deuterocanonical) |
+
+The `NVI` failure is easy to miss: it returns 36 well-formed verses with the right numbering,
+but every verse repeats the same licensing notice — 1 distinct opening across John 3. A
+naive "does it return rows?" check would pass it. The catalogue therefore ships 6 Spanish and
+5 French editions, and the UI now shows each translation's license status.
+
 ## What is now de-risked
 
 - Edge TTS works today with no key and no token failures.

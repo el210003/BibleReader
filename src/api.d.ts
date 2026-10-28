@@ -3,7 +3,7 @@ export type VoiceOption = { id: string; locale: string; label: string };
 export type Catalog = {
   translations: Record<
     string,
-    { name: string; lang: string; dir?: string; voices: VoiceOption[]; defaultVoice: string }
+    { name: string; lang: string; dir?: string; license?: string; voices: VoiceOption[]; defaultVoice: string }
   >;
   systemLocale: string;
   preferredLanguages: string[];

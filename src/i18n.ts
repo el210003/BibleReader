@@ -46,6 +46,8 @@ type Strings = {
   themeLight: string;
   themeDark: string;
   textSize: string;
+  publicDomain: string;
+  licensedTranslation: string;
   oldTestament: string;
   newTestament: string;
   deuterocanonical: string;
@@ -88,6 +90,8 @@ const STRINGS: Record<UiLang, Strings> = {
     themeLight: '淺色',
     themeDark: '深色',
     textSize: '字級',
+    publicDomain: '公有領域',
+    licensedTranslation: '© 授權譯本',
     oldTestament: '舊約',
     newTestament: '新約',
     deuterocanonical: '次經 / 附篇',
@@ -128,6 +132,8 @@ const STRINGS: Record<UiLang, Strings> = {
     themeLight: 'Light',
     themeDark: 'Dark',
     textSize: 'Text size',
+    publicDomain: 'Public domain',
+    licensedTranslation: '© Licensed translation',
     oldTestament: 'Old Testament',
     newTestament: 'New Testament',
     deuterocanonical: 'Deuterocanonical',
@@ -168,6 +174,8 @@ const STRINGS: Record<UiLang, Strings> = {
     themeLight: 'Claro',
     themeDark: 'Oscuro',
     textSize: 'Tamaño del texto',
+    publicDomain: 'Dominio público',
+    licensedTranslation: '© Traducción con licencia',
     oldTestament: 'Antiguo Testamento',
     newTestament: 'Nuevo Testamento',
     deuterocanonical: 'Deuterocanónicos',
@@ -208,6 +216,8 @@ const STRINGS: Record<UiLang, Strings> = {
     themeLight: 'Clair',
     themeDark: 'Sombre',
     textSize: 'Taille du texte',
+    publicDomain: 'Domaine public',
+    licensedTranslation: '© Traduction sous licence',
     oldTestament: 'Ancien Testament',
     newTestament: 'Nouveau Testament',
     deuterocanonical: 'Deutérocano­niques',

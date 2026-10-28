@@ -901,6 +901,11 @@ export default function App() {
                   <option key={k} value={k}>{v.name}</option>
                 ))}
             </select>
+            <p className="license-note">
+              {catalog?.translations[translation]?.license === 'licensed'
+                ? t.licensedTranslation
+                : t.publicDomain}
+            </p>
           </div>
 
           <div className="field">

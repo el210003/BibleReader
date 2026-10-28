@@ -53,22 +53,57 @@ const HE_VOICES = [
   { id: 'he-IL-HilaNeural', locale: 'he-IL', label: 'עברית · Hila (F)' },
 ];
 
+const ES_VOICES = [
+  { id: 'es-ES-ElviraNeural', locale: 'es-ES', label: 'Español ES · Elvira' },
+  { id: 'es-ES-AlvaroNeural', locale: 'es-ES', label: 'Español ES · Álvaro' },
+  { id: 'es-MX-DaliaNeural', locale: 'es-MX', label: 'Español MX · Dalia' },
+  { id: 'es-MX-JorgeNeural', locale: 'es-MX', label: 'Español MX · Jorge' },
+];
+
+const FR_VOICES = [
+  { id: 'fr-FR-DeniseNeural', locale: 'fr-FR', label: 'Français FR · Denise' },
+  { id: 'fr-FR-HenriNeural', locale: 'fr-FR', label: 'Français FR · Henri' },
+  { id: 'fr-CA-SylvieNeural', locale: 'fr-CA', label: 'Français CA · Sylvie' },
+];
+
+// `license` is surfaced in the UI so the reader knows what they are selecting.
+// NVI is deliberately absent: bolls.life serves a Biblica placeholder text for every
+// verse (all 36 verses of John 3 share one opening line), so it is unusable there.
 const TRANSLATIONS = {
   CUV: {
     name: '和合本 (繁體)',
     lang: 'zh-Hant',
+    license: 'public-domain',
     voices: ZH_HANT_VOICES,
     defaultVoice: 'zh-TW-HsiaoChenNeural',
   },
   CUNP: {
     name: '新標點和合本',
     lang: 'zh-Hant',
+    license: 'licensed',
     voices: ZH_HANT_VOICES,
     defaultVoice: 'zh-TW-HsiaoChenNeural',
+  },
+  WLC: {
+    name: 'Westminster Leningrad Codex (Hebrew OT)',
+    lang: 'he',
+    dir: 'rtl',
+    license: 'public-domain',
+    voices: HE_VOICES,
+    defaultVoice: 'he-IL-AvriNeural',
+  },
+  DHNT: {
+    name: 'הברית החדשה (Delitzsch)',
+    lang: 'he',
+    dir: 'rtl',
+    license: 'public-domain',
+    voices: HE_VOICES,
+    defaultVoice: 'he-IL-AvriNeural',
   },
   WEB: {
     name: 'World English Bible',
     lang: 'en',
+    license: 'public-domain',
     voices: [
       { id: 'en-US-AvaNeural', locale: 'en-US', label: 'English US · Female Ava' },
       { id: 'en-US-AndrewNeural', locale: 'en-US', label: 'English US · Male Andrew' },
@@ -79,36 +114,78 @@ const TRANSLATIONS = {
   RV1960: {
     name: 'Reina-Valera 1960',
     lang: 'es',
-    voices: [
-      { id: 'es-ES-ElviraNeural', locale: 'es-ES', label: 'Español ES · Elvira' },
-      { id: 'es-ES-AlvaroNeural', locale: 'es-ES', label: 'Español ES · Álvaro' },
-      { id: 'es-MX-DaliaNeural', locale: 'es-MX', label: 'Español MX · Dalia' },
-      { id: 'es-MX-JorgeNeural', locale: 'es-MX', label: 'Español MX · Jorge' },
-    ],
+    license: 'public-domain',
+    voices: ES_VOICES,
     defaultVoice: 'es-ES-ElviraNeural',
   },
-  WLC: {
-    name: 'Westminster Leningrad Codex (Hebrew OT)',
-    lang: 'he',
-    dir: 'rtl',
-    voices: HE_VOICES,
-    defaultVoice: 'he-IL-AvriNeural',
+  BTX3: {
+    name: 'La Biblia Textual 3ra Edición',
+    lang: 'es',
+    license: 'licensed',
+    voices: ES_VOICES,
+    defaultVoice: 'es-ES-ElviraNeural',
   },
-  DHNT: {
-    name: 'הברית החדשה (Delitzsch)',
-    lang: 'he',
-    dir: 'rtl',
-    voices: HE_VOICES,
-    defaultVoice: 'he-IL-AvriNeural',
+  RV2004: {
+    name: 'Reina Valera Gómez 2004',
+    lang: 'es',
+    license: 'licensed',
+    voices: ES_VOICES,
+    defaultVoice: 'es-ES-ElviraNeural',
+  },
+  PDT: {
+    name: 'Palabra de Dios para Todos',
+    lang: 'es',
+    license: 'licensed',
+    voices: ES_VOICES,
+    defaultVoice: 'es-MX-DaliaNeural',
+  },
+  NTV: {
+    name: 'Nueva Traducción Viviente',
+    lang: 'es',
+    license: 'licensed',
+    voices: ES_VOICES,
+    defaultVoice: 'es-MX-DaliaNeural',
+  },
+  LBLA: {
+    name: 'La Biblia de las Américas',
+    lang: 'es',
+    license: 'licensed',
+    voices: ES_VOICES,
+    defaultVoice: 'es-ES-ElviraNeural',
   },
   FRLSG: {
     name: 'Segond 1910',
     lang: 'fr',
-    voices: [
-      { id: 'fr-FR-DeniseNeural', locale: 'fr-FR', label: 'Français FR · Denise' },
-      { id: 'fr-FR-HenriNeural', locale: 'fr-FR', label: 'Français FR · Henri' },
-      { id: 'fr-CA-SylvieNeural', locale: 'fr-CA', label: 'Français CA · Sylvie' },
-    ],
+    license: 'public-domain',
+    voices: FR_VOICES,
+    defaultVoice: 'fr-FR-DeniseNeural',
+  },
+  FRDBY: {
+    name: 'Bible Darby 1890',
+    lang: 'fr',
+    license: 'public-domain',
+    voices: FR_VOICES,
+    defaultVoice: 'fr-FR-DeniseNeural',
+  },
+  NBS: {
+    name: 'Nouvelle Bible Segond 2002',
+    lang: 'fr',
+    license: 'licensed',
+    voices: FR_VOICES,
+    defaultVoice: 'fr-FR-DeniseNeural',
+  },
+  FRPDV17: {
+    name: 'Parole de Vie 2017',
+    lang: 'fr',
+    license: 'licensed',
+    voices: FR_VOICES,
+    defaultVoice: 'fr-FR-DeniseNeural',
+  },
+  BDS: {
+    name: 'Bible du Semeur 2015',
+    lang: 'fr',
+    license: 'licensed',
+    voices: FR_VOICES,
     defaultVoice: 'fr-FR-DeniseNeural',
   },
 };

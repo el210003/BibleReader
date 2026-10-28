@@ -52,6 +52,24 @@ That is: the 66-book canon loads with Traditional Chinese names, a verse click s
 and plays with live karaoke, a text selection surfaces the action bar and speaks only the
 selected span, and continuous playback auto-advanced to verse 2 of 36.
 
+## Translations
+
+Every entry is selectable in the panel and shows its license status there.
+
+| Language | Public domain | Licensed (©) |
+|---|---|---|
+| Chinese | `CUV` 和合本 1919 | `CUNP` 新標點和合本 |
+| Hebrew | `WLC` (OT), `DHNT` (NT) | — |
+| English | `WEB` | — |
+| Spanish | `RV1960` | `BTX3`, `RV2004`, `PDT`, `NTV`, `LBLA` |
+| French | `FRLSG` Segond 1910, `FRDBY` Darby 1890 | `NBS`, `FRPDV17`, `BDS` |
+
+`FRPDV17` carries 9 deuterocanonical books (75 total), grouped in their own section.
+
+**`NVI` is deliberately excluded.** bolls.life serves a Biblica placeholder for it — all 36
+verses of John 3 share the same opening line ("Biblica, Inc. me prohibió usar la traducción
+NIV…"), so it is unusable there rather than merely licensed.
+
 ## Interface
 
 The UI is reading-first: no permanent control bars compete with the text.

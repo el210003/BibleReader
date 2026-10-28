@@ -773,3 +773,10 @@ input[type='text'] {
 .chapter-head bdi {
   unicode-bidi: isolate;
 }
+
+.license-note {
+  margin: 2px 0 0;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+}
