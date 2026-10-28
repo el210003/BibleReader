@@ -12,10 +12,12 @@ deviations) and `SPIKE-RESULTS.md` for the measurements that shaped it.
 
 ## What works right now
 
-- **Full canon navigation.** All 66 books for `CUV`, `CUNP`, `RV1960`, `FRLSG`; 83 for
-  `WEB` (its 17 deuterocanonical books are grouped separately). Book names are localized
-  (繁體中文 / English / Español / Français) because the provider's own names are wrong for
-  display — CUV returns Simplified ("创世记") despite Traditional text.
+- **Full canon navigation** across 16 translations in five scripture languages, each with the
+  provider's own canon: 66 books for the Chinese, English and Spanish editions, 83 for `WEB`
+  and 75 for `FRPDV17` (deuterocanonical books grouped separately), 39 for `WLC` and 27 for
+  `DHNT`. Book names are localized (繁體中文 / English / Español / Français) because the
+  provider's own names are wrong for display — CUV returns Simplified ("创世记") despite
+  Traditional text. The Hebrew editions use the provider's Hebrew names.
 - `CUV` character-spacing is normalized (the 1919 edition arrives as `「 神 愛 世 人 ，`).
 - **Highlight-to-speak.** Select any text inside a verse — or drag across verses — and a
   floating bar offers 朗讀選取 / 整節. The selected span is synthesized and karaoke-highlighted
@@ -30,6 +32,8 @@ deviations) and `SPIKE-RESULTS.md` for the measurements that shaped it.
   UI languages you chose — Hebrew is scripture, not a UI locale.
 - **Continuous chapter playback** with prefetch of the next verse while the current one plays,
   auto-advance, auto-scroll to the spoken verse, and stop-at-end.
+- **Translation catalogue with license labels.** Every edition states whether it is public
+  domain or licensed before you read it — see [Translations](#translations).
 - Speed control re-synthesizes server-side (0.75×–2×).
 - **Disk cache with LRU eviction** for chapters (30-day TTL) and synthesized audio (500 MB
   default cap, `BIBLEREADER_CACHE_MB` to change). Previously read chapters open offline.
@@ -42,15 +46,23 @@ Verified end-to-end by `npm run smoke`, which drives the real UI (click-to-speak
 selection-to-speak, and continuous playback):
 
 ```
-{"books":{"count":66,"first":"創世記","john":"約翰福音","last":"啟示錄"},
- "clickTest":{"marks":20,"activeMarks":1,"playing":true,"currentTime":1.99},
- "selTest":{"barShown":true,"barButtons":["▶ 朗讀選取","整節","×"],"label":"選取範圍","marks":4,"playing":true},
- "queueTest":{"queuePill":"2/36","playing":true,"activeVerse":"1"}}
+{"books":{"count":66,"first":"創世記","last":"啟示錄"},
+ "clickTest":{"marks":20,"markCheck":true,"playing":true},
+ "selTest":{"barShown":true,"marks":4},
+ "translationTest":{"count":16,"lbLicense":"© Licensed translation"},
+ "fontSizeTest":{"afterSlider":"30px","persisted":31},
+ "hebrewTest":{"dir":"rtl","marks":20,"markCheck":true,"gutterMirrored":true},
+ "panelTest":{"bookItems":66,"chapterCells":21},
+ "keyboardTest":{"spoke":true}}
 ```
 
-That is: the 66-book canon loads with Traditional Chinese names, a verse click synthesizes
-and plays with live karaoke, a text selection surfaces the action bar and speaks only the
-selected span, and continuous playback auto-advanced to verse 2 of 36.
+That is: the 66-book canon loads with Traditional Chinese names; a verse click synthesizes and
+plays with live karaoke whose spans are verified to land on the right characters
+(`markCheck`); selection-to-speak works; all 16 translations load and the licensed one is
+labelled; scripture size changes and persists; Hebrew renders RTL with a mirrored gutter and
+correct span mapping; the navigator lists 66 books and 21 chapters; Ctrl+Shift+S speaks.
+
+The same checks run against the packaged installer, not just the dev tree.
 
 ## Translations
 
@@ -236,7 +248,7 @@ electron/doctor.cjs    `npm run doctor` environment checks
 src/i18n.ts            UI strings for 繁體中文 / English / Español / Français
 src/App.css            design tokens, light/dark palettes, reading surface
 src/assets/fonts/      subset Noto Serif TC (1.78 MB) + Noto Serif Hebrew (65 KB), generated
-scripts/build-font.mjs subsets the CJK font to the glyphs the CUV corpus uses
+scripts/build-font.mjs subsets the CJK font to the glyphs all six Chinese editions use
 scripts/make-icon.cjs  renders build/icon.png
 build/icon.png         installer/app icon
 scripts/predev.mjs     dev-server port preflight
@@ -260,13 +272,10 @@ for packaged builds.
   synthesize per verse.
 - Each verse's audio carries 500–950 ms of trailing silence. Decide the inter-verse pause
   explicitly rather than inheriting it.
-- Licensed translations (`NIV`, `ESV`, `NVI`, `NBS`, `思高`) are opt-in; the shipped
-  defaults (`CUV`, `WEB`, `RV1960`, `FRLSG`) are public domain.
-
-## License note
-
-Scripture text is served by bolls.life. Public-domain editions are used as defaults so the
-app is legally clean out of the box.
+- Most of the catalogue is licensed (©): `CUNP`, `BTX3`, `RV2004`, `PDT`, `NTV`, `LBLA`,
+  `NBS`, `FRPDV17`, `BDS`. That is fine for personal reading; the app labels each one rather
+  than implying they are all free. `NVI` is not shipped because the provider serves a
+  placeholder for it.
 
 ## License
 
@@ -276,8 +285,8 @@ MIT — see [LICENSE](LICENSE).
 
 - **Bundled fonts:** Noto Serif TC (subset to the Chinese scripture glyphs) and Noto Serif
   Hebrew (subset to the Hebrew block), both under the SIL Open Font License 1.1.
-- **Scripture text:** fetched from bolls.life. The shipped defaults are public-domain editions
-  (CUV 1919, WEB, RV1960, FRLSG). Licensed translations (NIV, ESV, NVI, NBS, 思高) are opt-in
-  selections and remain under their publishers' terms — the MIT license covers this app's code,
-  not the scripture text.
+- **Scripture text:** fetched from bolls.life. The public-domain entries are `CUV` 1919,
+  `WEB`, `WLC`, `DHNT`, `RV1960`, `FRLSG` and `FRDBY`. Everything else (`CUNP`, `BTX3`,
+  `RV2004`, `PDT`, `NTV`, `LBLA`, `NBS`, `FRPDV17`, `BDS`) remains under its publisher's
+  terms — the MIT license covers this app's code, not the scripture text.
 - **Speech:** Edge Read Aloud voices are provided by Microsoft's service.
